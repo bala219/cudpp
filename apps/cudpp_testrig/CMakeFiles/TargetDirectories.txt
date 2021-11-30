@@ -1,0 +1,3 @@
+/home/gurumurt/projects/cudpp-master/apps/cudpp_testrig/CMakeFiles/rebuild_cache.dir
+/home/gurumurt/projects/cudpp-master/apps/cudpp_testrig/CMakeFiles/edit_cache.dir
+/home/gurumurt/projects/cudpp-master/apps/cudpp_testrig/CMakeFiles/cudpp_testrig.dir

@@ -1,0 +1,2 @@
+[  3%] Building NVCC (Device) object src/cudpp/CMakeFiles/cudpp.dir/app/cudpp_generated_mergesort_app.cu.o
+[  6%] Linking CXX static library ../../lib/libcudpp.a

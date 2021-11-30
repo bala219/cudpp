@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="d4f9495e-6a2a-4600-993e-249cca873b31" name="14er (project level)">
+        <fileTransfer rootFolder="/home/gurumurt/projects" accessType="SFTP" host="10.37.137.14" port="22" sshConfigId="b9584d96-8b15-4bed-a487-5a70f9b3fe23" sshConfig="14er">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
