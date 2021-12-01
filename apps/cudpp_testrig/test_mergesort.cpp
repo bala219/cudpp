@@ -253,7 +253,7 @@ int testMergeSort(int argc, const char **argv, const CUDPPConfiguration *configP
 //            512
 //            1024
 //            2048
-            1<<17
+            1<<19
 //            4096
 //            8192
 //            10000
@@ -262,7 +262,7 @@ int testMergeSort(int argc, const char **argv, const CUDPPConfiguration *configP
 //            32768
 //            134217728
     };
-//                     8388608};
+
     int numTests = sizeof(test)/sizeof(test[0]);
     
     size_t numElements = test[numTests - 1];

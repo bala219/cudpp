@@ -64,26 +64,6 @@ __device__ void bin_search_block(T &cmpValue, T tmpVal, T* in, unsigned int & j,
 
 }
 
-
-/** @brief Binary search within a single block (blockSort)
- * @param[in,out] cmpValue Value being considered from other partition
- * @param[in] tmpVal My Value
- * @param[in] in input keys
- * @param[in,out] j The index we are considering
- * @param[in] bump The offset we update by
- * @param[in] addPart Tie break (left partition vs right partition)
- **/
-template<class T, int depth>
-__device__ void bin_search_aggregate_block(T &cmpValue, T tmpVal, T* in, unsigned int & j, unsigned int bump, unsigned int addPart)
-{
-
-	cmpValue = in[j];
-
-    j = ((cmpValue < tmpVal || cmpValue == tmpVal && addPart == 1) ? j + bump : j - bump);
-
-    __syncthreads();
-
-}
 /** @brief Linear search within a single block (blockSort)
  * @param[in,out] cmpValue Value being considered from other partition
  * @param[in] mVal Value in our partition

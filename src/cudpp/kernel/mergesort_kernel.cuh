@@ -49,7 +49,6 @@ void simpleCopy(T* A_keys_dev, unsigned int* A_vals_dev, T* A_keys_out_dev, unsi
         return;
     A_keys_out_dev[offset+myId] = A_keys_dev[offset+myId];
     A_vals_out_dev[offset+myId] = A_vals_dev[offset+myId];
-
 }
 /** @brief Sorts blocks of data of size blockSize
  * @param[in,out] A_keys keys to be sorted
@@ -202,39 +201,25 @@ void blockWiseSort(T *A_keys, unsigned int* A_values, int blockSize, size_t tota
             newCmpValue = scratchPad[++atomicIndex];
         if((newCmpValue < myKey[0] || (newCmpValue == myKey[0] && addPart == 0)) && atomicIndex == last)
             atomicIndex++;
-
-//        while(newCmpValue <= myKey[0] && addPart == 0)
-//            newCmpValue = scratchPad[++atomicIndex];
-
+        //End of atomic aggregation
 
         //Save first address, then perform linear searches
         __syncthreads();
         myAddress[0] = j + startAddress;
         myAtomicAddress[0] = atomicIndex + startAddress;
-//
-//        atomicAdd(&addressPad[myAtomicAddress[0]] , myValue[0]);
 
         lin_search_aggregate_block<T, depth>(cmpValue, myKey[1], myAddress[1], myAtomicAddress[1], scratchPad, addressPad, j, 1, last, startAddress, addPart);
-
         lin_search_aggregate_block<T, depth>(cmpValue, myKey[2], myAddress[2], myAtomicAddress[2], scratchPad, addressPad, j, 2, last, startAddress, addPart);
-
         lin_search_aggregate_block<T, depth>(cmpValue, myKey[3], myAddress[3], myAtomicAddress[3], scratchPad, addressPad, j, 3, last, startAddress, addPart);
-
         lin_search_aggregate_block<T, depth>(cmpValue, myKey[4], myAddress[4], myAtomicAddress[4], scratchPad, addressPad, j, 4, last, startAddress, addPart);
-
         lin_search_aggregate_block<T, depth>(cmpValue, myKey[5], myAddress[5], myAtomicAddress[5], scratchPad, addressPad, j, 5, last, startAddress, addPart);
-
         lin_search_aggregate_block<T, depth>(cmpValue, myKey[6], myAddress[6], myAtomicAddress[6], scratchPad, addressPad, j, 6, last, startAddress, addPart);
-
         lin_search_aggregate_block<T, depth>(cmpValue, myKey[7], myAddress[7], myAtomicAddress[7], scratchPad, addressPad, j, 7, last, startAddress, addPart);
-
-//        addressPad[myAtomicAddress[0]] = myValue[0];addressPad[myAtomicAddress[1]] = myValue[1];addressPad[myAtomicAddress[2]] = myValue[2];addressPad[myAtomicAddress[3]] = myValue[3];
-//        addressPad[myAtomicAddress[4]] = myValue[4];addressPad[myAtomicAddress[5]] = myValue[5];addressPad[myAtomicAddress[6]] = myValue[6];addressPad[myAtomicAddress[7]] = myValue[7];
 
         atomicAdd(&addressPad[myAtomicAddress[0]], myValue[0]); atomicAdd(&addressPad[myAtomicAddress[1]], myValue[1]); atomicAdd(&addressPad[myAtomicAddress[2]], myValue[2]); atomicAdd(&addressPad[myAtomicAddress[3]], myValue[3]);
         atomicAdd(&addressPad[myAtomicAddress[4]], myValue[4]); atomicAdd(&addressPad[myAtomicAddress[5]], myValue[5]); atomicAdd(&addressPad[myAtomicAddress[6]], myValue[6]); atomicAdd(&addressPad[myAtomicAddress[7]], myValue[7]);
-        //Save Key values in correct addresses -- Unrolled for performance
         __syncthreads();
+
         scratchPad[myAddress[0]] = myKey[0]; scratchPad[myAddress[1]] = myKey[1]; scratchPad[myAddress[2]] = myKey[2]; scratchPad[myAddress[3]] = myKey[3];
         scratchPad[myAddress[4]] = myKey[4]; scratchPad[myAddress[5]] = myKey[5]; scratchPad[myAddress[6]] = myKey[6]; scratchPad[myAddress[7]] = myKey[7];
 
@@ -281,15 +266,17 @@ template<class T, int depth>
 __global__
 void simpleMerge_lower(T *A_keys, unsigned int* A_values, T *A_keys_out, unsigned int *A_values_out, int sizePerPartition, int size)
 {
+
     //each block will be responsible for a submerge
     int myId = blockIdx.x; int tid = threadIdx.x;	
     int myStartIdxA = 2*myId*sizePerPartition;   int myStartIdxB = (2*myId+1)*sizePerPartition;  int myStartIdxC = myStartIdxA;	
     int partitionSizeB = sizePerPartition < (size - myStartIdxB) ? sizePerPartition : size - myStartIdxB;	
 
-	T MAX_VAL = getMax<T>();
+    T MAX_VAL = getMax<T>();
 	T MIN_VAL = getMin<T>();
 	unsigned int UMAX_VAL = getMax<unsigned int>();
-    //__shared__ T BKeys[INTERSECT_B_BLOCK_SIZE_simple+2];	
+    //__shared__ T BKeys[INTERSECT_B_BLOCK_SIZE_simple+2];
+
 #if (__CUDA_ARCH__ >= 200)
     extern __shared__ char shared[];
 #else
@@ -306,7 +293,6 @@ void simpleMerge_lower(T *A_keys, unsigned int* A_values, T *A_keys_out, unsigne
     T myKey[depth]; 
     unsigned int myValue[depth];
     
-    
     //Load Registers
     if(aIndex + INTERSECT_A_BLOCK_SIZE_simple < sizePerPartition) 
     {
@@ -314,8 +300,8 @@ void simpleMerge_lower(T *A_keys, unsigned int* A_values, T *A_keys_out, unsigne
         for(int i = 0;i < depth; i++) 
         { 
             myKey[i]   = A_keys  [myStartIdxA + aIndex + depth*tid + i]; 
-            myValue[i] = A_values[myStartIdxA + aIndex + depth*tid + i]; 
-        }	
+            myValue[i] = A_values[myStartIdxA + aIndex + depth*tid + i];
+        }
     }
     else
     {
@@ -323,7 +309,7 @@ void simpleMerge_lower(T *A_keys, unsigned int* A_values, T *A_keys_out, unsigne
         for(int i = 0;i < depth; i++) 
         { 
             myKey[i] =   (aIndex+depth*tid + i < sizePerPartition ? A_keys  [myStartIdxA + aIndex+ depth*tid + i]   : MAX_VAL); 
-            myValue[i] = (aIndex+depth*tid + i < sizePerPartition ? A_values[myStartIdxA + aIndex+ depth*tid + i]   : UMAX_VAL);	
+            myValue[i] = (aIndex+depth*tid + i < sizePerPartition ? A_values[myStartIdxA + aIndex+ depth*tid + i]   : UMAX_VAL);
         }
     }	
 
@@ -359,9 +345,13 @@ void simpleMerge_lower(T *A_keys, unsigned int* A_values, T *A_keys_out, unsigne
     localMinB = MIN_VAL;
     localMaxB = BMax[0]; 
     localMaxA = BMax[1];
-    
+
     do
-    {		
+    {
+        for(int i = 0;i < depth; i++) {
+            A_values[myStartIdxA + aIndex+ depth*tid + i] = 0;
+        }
+        // Initialized A_values to aggregate results without overwriting them
         __syncthreads();	
         globalCAddress = myStartIdxC + bIndex + aIndex + tid*depth;
         index = 0;
@@ -375,30 +365,52 @@ void simpleMerge_lower(T *A_keys, unsigned int* A_values, T *A_keys_out, unsigne
             T cmpValue = BKeys[index];
             if(cmpValue < myKey[0] && index < INTERSECT_B_BLOCK_SIZE_simple)			
                 cmpValue = BKeys[++index];
-    
-            
+
+            T newCmpValue = BKeys[index];
+            int atomicIndex = index;
+
+            while(newCmpValue <= myKey[0] && atomicIndex < INTERSECT_B_BLOCK_SIZE_simple)
+                newCmpValue = BKeys[++atomicIndex];
+
             index = (cmpValue < myKey[0] ? index+1 : index);						
-            
-            
+//            atomicIndex = (newCmpValue < myKey[0] ? atomicIndex+1 : atomicIndex);
+
             //Save Key-Value Pair
             if((myKey[0] < localMaxB && myKey[0] > localMinB) || (bIndex+index) >= (partitionSizeB)  || (index > 0 && index <INTERSECT_B_BLOCK_SIZE_simple))
             {
-        
-                A_keys_out  [globalCAddress + index] = myKey[0]; A_values_out[globalCAddress + index] = myValue[0]; }
+                int av = A_values_out[globalCAddress + atomicIndex];
+                A_keys_out  [globalCAddress + index] = myKey[0];
+                atomicAdd(&A_values_out[globalCAddress + atomicIndex], myValue[0]);
+//                myValue[0] = 0;
+                if(myValue[0]&&(myKey[0]==25||myKey[0]==30))
+                    printf("SL 0 (%d,%d) found location for %d(%d) as %d[%d] %d --> %d\n",(int)tid,(int)myId,(int)myKey[0],(int)myValue[0],(int)globalCAddress + index,(int)globalCAddress + atomicIndex,av,A_values_out[globalCAddress + atomicIndex]);
+
+            }
                 
             while(BKeys[index] < myKey[1] && index < INTERSECT_B_BLOCK_SIZE_simple)				
-                index++;				
+                index++;
+
+            newCmpValue = BKeys[index];
+            atomicIndex = index;
+            while(BKeys[atomicIndex] <= myKey[1] && atomicIndex < INTERSECT_B_BLOCK_SIZE_simple)
+                atomicIndex++;
+
             //save Key-Value Pair
             if(((myKey[1] <= localMaxB && myKey[1] > localMinB) || bIndex+index >= (partitionSizeB)) && (aIndex+tid*depth+1< sizePerPartition))										 
-            { A_keys_out[globalCAddress+index+1] =  myKey[1];	A_values_out[globalCAddress+index+1] = myValue[1]; }			
+            {
+                A_keys_out[globalCAddress+index+1] =  myKey[1];
+                int aV = A_values_out[globalCAddress+atomicIndex];
+                atomicAdd(&A_values_out[globalCAddress+atomicIndex], myValue[1]);
+//                myValue[1] = 0;
+                if(myValue[1]&&(myKey[1]==25||myKey[0]==30))
+                    printf("SL 1 (%d,%d) found location for %d(%d) as %d[%d]  %d--> %d\n",(int)tid,(int)myId,(int)myKey[1],(int)myValue[1],(int)index,(int)atomicIndex,(int)aV,(int)A_values_out[globalCAddress+atomicIndex]);
+            }
         }		
         
         __syncthreads();
         if((localMaxA <= localMaxB || (bIndex+INTERSECT_B_BLOCK_SIZE_simple) >= partitionSizeB) && (aIndex+INTERSECT_A_BLOCK_SIZE_simple) < sizePerPartition)
         {	
-            
-        
-    
+
             aIndex += INTERSECT_A_BLOCK_SIZE_simple;	
             
             if(aIndex + INTERSECT_A_BLOCK_SIZE_simple < sizePerPartition) {
@@ -479,8 +491,7 @@ void simpleMerge_higher(T *A_keys, unsigned int* A_values, T* A_keys_out, unsign
 
     int partitionSizeA = (sizePerPartition < (size - myStartIdxA) ? sizePerPartition : size - myStartIdxA);
 
-    
-    int index, bIndex = 0, aIndex = 0;	
+    int index, bIndex = 0, aIndex = 0;
 #if (__CUDA_ARCH__ >= 200)
     extern __shared__ char shared[];
 #else
@@ -529,10 +540,13 @@ void simpleMerge_higher(T *A_keys, unsigned int* A_values, T* A_keys_out, unsign
 
     nextMaxB = BMax[0];		
     nextMaxA = BMax[1];						
-        
+
     int globalCAddress;
     do
-    {	
+    {
+        for(int i = 0;i < depth; i++) {
+            A_values[myStartIdxA + aIndex+ depth*tid + i] = 0;
+        }
         __syncthreads();
         index = 0;
         globalCAddress = myStartIdxC + bIndex + aIndex + depth*tid;
@@ -546,21 +560,42 @@ void simpleMerge_higher(T *A_keys, unsigned int* A_values, T* A_keys_out, unsign
             if(cmpValue <= myKey[0] && index < INTERSECT_B_BLOCK_SIZE_simple)			
                 cmpValue = BKeys[++index];
 
-            index = (cmpValue <= myKey[0] ? index + 1 : index);
+            int atomicIndex = index;
+            T newCmpValue = BKeys[atomicIndex];
 
+//            while(newCmpValue <= myKey[0] && atomicIndex < INTERSECT_B_BLOCK_SIZE_simple)
+//                newCmpValue = BKeys[++atomicIndex];
+
+            index = (cmpValue <= myKey[0] ? index + 1 : index);
+            atomicIndex = index;
+//            atomicIndex = (newCmpValue < myKey[0] ? atomicIndex+1 : atomicIndex);
 
             //End Binary Search
             //binary search done for first element in our set (A_0)			
             if(myKey[0] >= localMinB)
-            { A_keys_out[globalCAddress+index] = myKey[0]; A_values_out[globalCAddress+index] =  myValue[0];	}		
+            {
+                int av = A_values_out[globalCAddress + atomicIndex];
+                A_keys_out[globalCAddress+index] = myKey[0];
+                atomicAdd(&A_values_out[globalCAddress + atomicIndex], myValue[0]);
+//                myValue[0] = 0;
+                if(myValue[0]&&(myKey[0]==25||myKey[0]==30))
+                    printf("SH 0 (%d,%d) found location for %d as %d[%d] %d --> %d\n",(int)tid,(int)myId,(int)myKey[0],(int)globalCAddress + index,(int)globalCAddress + atomicIndex,av,A_values_out[globalCAddress + atomicIndex]);
+            }
 
             while(BKeys[index] <= myKey[1] && index < INTERSECT_B_BLOCK_SIZE_simple )
                 index++;
+            atomicIndex = index;
 
             //Save Key-Value Pair
             if(((myKey[1] < nextMaxB && myKey[1] >= localMinB) || bIndex+index >=sizePerPartition) && (aIndex+depth*tid+1 < partitionSizeA))	
             {
-                A_keys_out[globalCAddress + index + 1] =  myKey[1]; A_values_out[globalCAddress + index + 1] =  myValue[1];	}			
+                A_keys_out[globalCAddress + index + 1] =  myKey[1];
+                int av = A_values_out[globalCAddress + atomicIndex];
+                atomicAdd(&A_values_out[globalCAddress + atomicIndex],  myValue[1]);
+//                myValue[1] = 0;
+                if(myValue[1]&&(myKey[1]==25||myKey[0]==30))
+                    printf("SH 1 (%d,%d) found location for %d(%d) as %d[%d]  %d--> %d\n",(int)tid,(int)myId,(int)myKey[1],(int)myValue[1],(int)index,(int)atomicIndex,(int)av,(int)A_values_out[globalCAddress+atomicIndex]);
+            }
                         
             }	
 
