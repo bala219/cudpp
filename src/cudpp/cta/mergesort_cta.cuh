@@ -77,7 +77,7 @@ __device__ void bin_search_block(T &cmpValue, T tmpVal, T* in, unsigned int & j,
  **/
 			
 template<class T, int depth>
-__device__ void lin_search_block(T &cmpValue, T mVal, unsigned int &tmpVal, T* in, unsigned int* addressPad, unsigned int &j, 
+		__device__ void lin_search_block(T &cmpValue, T mVal, unsigned int &tmpVal,unsigned int &atomicIndex, T* in, unsigned int* addressPad, unsigned int &j,
 								 unsigned int offset, unsigned int last, unsigned int startAddress, unsigned int addPart)
 {			
 	
@@ -90,12 +90,13 @@ __device__ void lin_search_block(T &cmpValue, T mVal, unsigned int &tmpVal, T* i
     j = (j==last && (cmpValue < mVal || (cmpValue == mVal && addPart == 1)) ? j+1 : j);	
 	
     tmpVal = j+startAddress+offset;
+    atomicIndex = tmpVal;
 }
 
 template<class T, int depth>
 __device__ void lin_search_aggregate_block(T &cmpValue, T mVal, unsigned int &tmpVal,unsigned int &atomicIndex, T* in, unsigned int* addressPad, unsigned int &j,
-								 unsigned int offset, unsigned int last, unsigned int startAddress, unsigned int addPart)
-{
+										   unsigned int offset, unsigned int last, unsigned int startAddress, unsigned int addPart)
+										   {
 
 	while (cmpValue < mVal && j < last)
 		cmpValue = in[++j];
@@ -111,56 +112,36 @@ __device__ void lin_search_aggregate_block(T &cmpValue, T mVal, unsigned int &tm
 		NewCmpValue = in[++atomicIndex];
 	atomicIndex = (atomicIndex==last && (NewCmpValue < mVal || (NewCmpValue == mVal && addPart == 0)) ? atomicIndex+1 : atomicIndex);
 
-    tmpVal = j+startAddress+offset;
+	tmpVal = j+startAddress+offset;
 	atomicIndex = atomicIndex+startAddress+offset;
-}
+										   }
 
 /** @brief For blockSort. Compares two values and decides to swap if A1 > A2
- * @param[in,out] A1 First value being compared
- * @param[in,out] A2 Second value being compared
- * @param[in,out] ref1 Local address of A1
- * @param[in,out] ref2 Local address of A2                        
- **/
-template<class T>
-__device__ void compareSwapVal(T &A1, T &A2, unsigned int& ref1, unsigned int& ref2)
-{
-    if(A1 > A2)
-    {
-        T tmp = A1;
-        A1 = A2;
-        A2 = tmp;
-
-        unsigned int tmp2 = ref1;
-        ref1 = ref2;
-        ref2 = tmp2;
-    }   
-}
-
-/** @brief For blockSort. Compares two values and decides to swap if A1 > A2
- * @param[in,out] A1 First value being compared
- * @param[in,out] A2 Second value being compared
- * @param[in,out] ref1 Local address of A1
- * @param[in,out] ref2 Local address of A2
- **/
+* @param[in,out] A1 First value being compared
+* @param[in,out] A2 Second value being compared
+* @param[in,out] ref1 Local address of A1
+* @param[in,out] ref2 Local address of A2
+**/
 template<class T>
 __device__ void compareSwapAggVal(T &A1, T &A2, unsigned int& ref1, unsigned int& ref2)
-{
-	if(A1 == A2)
 	{
-		ref2 = ref1 + ref2;
-		ref1 = 0;
-	}
-    else if(A1 > A2)
-    {
-        T tmp = A1;
-        A1 = A2;
-        A2 = tmp;
+		if(A1 == A2)
+		{
+			ref2 = ref1 + ref2;
+			ref1 = 0;
+		}
+		else if(A1 > A2)
+		{
+			T tmp = A1;
+			A1 = A2;
+			A2 = tmp;
 
-        unsigned int tmp2 = ref1;
-        ref1 = ref2;
-        ref2 = tmp2;
-    }
-}
+			unsigned int tmp2 = ref1;
+			ref1 = ref2;
+			ref2 = tmp2;
+		}
+	}
+
 
 template<class T>
 __device__ 

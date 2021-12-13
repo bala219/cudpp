@@ -133,11 +133,10 @@ void VectorSupport<unsigned int>::fillVectorKeys(unsigned int *a, size_t numElem
     srand(95123);
     for(unsigned int i=0; i < numElements; ++i)
     { 
-//        a[i] = 1;
-//        a[i] = (numElements - i)%(512) + 1;
-//        a[i] = !(i%128)?INT_MAX:a[i];
-//        a[i] = i%12+1;
-        a[i] = (i%32) + 1;
+        a[i] = (numElements - i)%(3) + 1;
+//        a[i] = i%1+1;
+//        a[i] = 2;
+//        a[i] = (i%32) + 1;
 //        a[i] = (((rand() & keyshiftmask)<<16) | (rand() & keymask))%8 +1;
     }
 }
