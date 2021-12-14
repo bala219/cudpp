@@ -61,7 +61,7 @@ void runMergeSort(T *pkeys,
 
 
     int numThreads = 128;
-    blockWiseSort<T, DEPTH>
+    blockWiseSort_basic<T, DEPTH>
         <<<numPartitions, BLOCKSORT_SIZE/DEPTH, (BLOCKSORT_SIZE)*sizeof(T) + (BLOCKSORT_SIZE)*sizeof(unsigned int)>>>(pkeys, pvals, BLOCKSORT_SIZE, numElements);
 
     int mult = 1; int count = 0;
@@ -69,21 +69,22 @@ void runMergeSort(T *pkeys,
 
     //we run p stages of simpleMerge until numBlocks <= some Critical level
     //Swap point reaches until 64
-//    swapPoint = 64;
-//    swapPoint = 128;
-//    swapPoint = 256;
+//    swapPoint = 1; //numPartitions/4;
+//    swapPoint = numPartitions; //numPartitions/4;
+//printf("numPartitions: %d\n",numPartitions);
 //    while(numPartitions > swapPoint )
 //    {
 //
 //        if(count%2 == 0)
 //        {
+//            printf("if\n");
 //            simpleClear<T>
 //            <<<(numElements+numThreads-1)/numThreads, numThreads>>>
 //            ((T*)plan->m_tempKeys,plan->m_tempValues,numElements);
 //
-//            simpleMerge_aggregate<T,2>
-//            <<<numBlocks, CTASIZE_simple, sizeof(T)*(INTERSECT_B_BLOCK_SIZE_simple+4)>>>
-//            (pkeys, pvals, partitionSize*mult, (int)numElements,count);
+////            simpleMerge_aggregate<T,2>
+////            <<<numBlocks, CTASIZE_simple, sizeof(T)*(INTERSECT_B_BLOCK_SIZE_simple+4)>>>
+////            (pkeys, pvals, partitionSize*mult, (int)numElements,count);
 //
 //            simpleMerge_lower_basic<T, 2>
 //                <<<numBlocks, CTASIZE_simple, sizeof(T)*(INTERSECT_B_BLOCK_SIZE_simple+4)>>>
@@ -92,11 +93,6 @@ void runMergeSort(T *pkeys,
 //            simpleMerge_higher_basic<T, 2>
 //                <<<numBlocks, CTASIZE_simple, sizeof(T)*(INTERSECT_B_BLOCK_SIZE_simple+4)>>>
 //                (pkeys, pvals, (T*)plan->m_tempKeys, plan->m_tempValues, partitionSize*mult, (int)numElements,count);
-//
-////            int offset = 0;
-////            int numElementsToCopy = numElements-offset;
-////            simpleCopy<T>
-////            <<<(numElementsToCopy+numThreads-1)/numThreads, numThreads>>>(pkeys, pvals,(T*)plan->m_tempKeys, plan->m_tempValues, offset, numElementsToCopy);
 //
 //            if(numPartitions%2 == 1)
 //            {
@@ -108,13 +104,14 @@ void runMergeSort(T *pkeys,
 //        }
 //        else
 //        {
+//            printf("else\n");
 //            simpleClear<T>
 //            <<<(numElements+numThreads-1)/numThreads, numThreads>>>
 //            (pkeys,pvals, numElements);
 //
-//            simpleMerge_aggregate<T,2>
-//            <<<numBlocks, CTASIZE_simple, sizeof(T)*(INTERSECT_B_BLOCK_SIZE_simple+4)>>>
-//            ((T*)plan->m_tempKeys, plan->m_tempValues, partitionSize*mult, (int)numElements,count);
+////            simpleMerge_aggregate<T,2>
+////            <<<numBlocks, CTASIZE_simple, sizeof(T)*(INTERSECT_B_BLOCK_SIZE_simple+4)>>>
+////            ((T*)plan->m_tempKeys, plan->m_tempValues, partitionSize*mult, (int)numElements,count);
 //
 //            simpleMerge_lower_basic<T, 2>
 //                <<<numBlocks, CTASIZE_simple, sizeof(T)*(INTERSECT_B_BLOCK_SIZE_simple+4)>>>
@@ -123,11 +120,6 @@ void runMergeSort(T *pkeys,
 //            simpleMerge_higher_basic<T, 2>
 //                <<<numBlocks, CTASIZE_simple, sizeof(T)*(INTERSECT_B_BLOCK_SIZE_simple+4)>>>
 //                ((T*)plan->m_tempKeys, plan->m_tempValues, pkeys, pvals, partitionSize*mult, numElements,count);
-//
-////            int offset = 0;
-////            int numElementsToCopy = numElements-offset;
-////            simpleCopy<T>
-////            <<<(numElementsToCopy+numThreads-1)/numThreads, numThreads>>>((T*)plan->m_tempKeys, plan->m_tempValues, pkeys, pvals, offset, numElementsToCopy);
 //
 //            if(numPartitions%2 == 1)
 //            {

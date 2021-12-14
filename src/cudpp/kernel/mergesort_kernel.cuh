@@ -80,6 +80,218 @@ void simpleClear(T* A_keys_dev, unsigned int* A_vals_out_dev, int numElementsToC
 
 template<class T, int depth>
 __global__
+void blockWiseSort_basic(T *A_keys, unsigned int* A_values, int blockSize, size_t totalSize)
+{
+    //load into registers
+    T myKey[depth];
+    unsigned int myValue[depth];
+    unsigned int myAddress[depth];
+    unsigned int myAtomicAddress[depth];
+
+#if (__CUDA_ARCH__ >= 200)
+    extern __shared__ char shared[];
+#else
+    extern __shared__ unsigned int shared[];
+#endif
+    //scratchPad is for stuffing keys
+    T* scratchPad =  (T*) shared;
+    unsigned int* addressPad = (unsigned int*) &scratchPad[BLOCKSORT_SIZE];
+
+
+    int bid = blockIdx.x;
+    int tid = threadIdx.x;
+
+    T MAX_VAL = getMax<T>();
+
+    //Grab values in coalesced fashion
+    //out of order, but since no sorting has been done, doesn't matter
+    for(int i = 0; i < depth; i++)
+    {
+        myKey[i] =    ((bid*blockSize+i*blockDim.x + tid) < totalSize ? A_keys  [bid*blockSize+i*blockDim.x + tid] : MAX_VAL);
+        myValue[i]  = ((bid*blockSize+i*blockDim.x + tid) < totalSize ? A_values[bid*blockSize+i*blockDim.x + tid] : 0);
+    }
+    //Register Sort - Begin
+    compareSwapAggVal<T>(myKey[0], myKey[1], myValue[0], myValue[1]);
+    compareSwapAggVal<T>(myKey[1], myKey[2], myValue[1], myValue[2]);
+    compareSwapAggVal<T>(myKey[2], myKey[3], myValue[2], myValue[3]);
+    compareSwapAggVal<T>(myKey[3], myKey[4], myValue[3], myValue[4]);
+    compareSwapAggVal<T>(myKey[4], myKey[5], myValue[4], myValue[5]);
+    compareSwapAggVal<T>(myKey[5], myKey[6], myValue[5], myValue[6]);
+    compareSwapAggVal<T>(myKey[6], myKey[7], myValue[6], myValue[7]);
+
+    compareSwapAggVal<T>(myKey[0], myKey[1], myValue[0], myValue[1]);
+    compareSwapAggVal<T>(myKey[1], myKey[2], myValue[1], myValue[2]);
+    compareSwapAggVal<T>(myKey[2], myKey[3], myValue[2], myValue[3]);
+    compareSwapAggVal<T>(myKey[3], myKey[4], myValue[3], myValue[4]);
+    compareSwapAggVal<T>(myKey[4], myKey[5], myValue[4], myValue[5]);
+    compareSwapAggVal<T>(myKey[5], myKey[6], myValue[5], myValue[6]);
+
+    compareSwapAggVal<T>(myKey[0], myKey[1], myValue[0], myValue[1]);
+    compareSwapAggVal<T>(myKey[1], myKey[2], myValue[1], myValue[2]);
+    compareSwapAggVal<T>(myKey[2], myKey[3], myValue[2], myValue[3]);
+    compareSwapAggVal<T>(myKey[3], myKey[4], myValue[3], myValue[4]);
+    compareSwapAggVal<T>(myKey[4], myKey[5], myValue[4], myValue[5]);
+
+    compareSwapAggVal<T>(myKey[0], myKey[1], myValue[0], myValue[1]);
+    compareSwapAggVal<T>(myKey[1], myKey[2], myValue[1], myValue[2]);
+    compareSwapAggVal<T>(myKey[2], myKey[3], myValue[2], myValue[3]);
+    compareSwapAggVal<T>(myKey[3], myKey[4], myValue[3], myValue[4]);
+
+    compareSwapAggVal<T>(myKey[0], myKey[1], myValue[0], myValue[1]);
+    compareSwapAggVal<T>(myKey[1], myKey[2], myValue[1], myValue[2]);
+    compareSwapAggVal<T>(myKey[2], myKey[3], myValue[2], myValue[3]);
+
+    compareSwapAggVal<T>(myKey[0], myKey[1], myValue[0], myValue[1]);
+    compareSwapAggVal<T>(myKey[1], myKey[2], myValue[1], myValue[2]);
+
+    compareSwapAggVal<T>(myKey[0], myKey[1], myValue[0], myValue[1]);
+
+    //Register Sort - End
+    __syncthreads();
+
+    //Manually unroll save for performance
+    //TODO: Use template unrolling?
+    scratchPad[tid*depth  ] = myKey[0]; scratchPad[tid*depth+1] = myKey[1]; scratchPad[tid*depth+2] = myKey[2]; scratchPad[tid*depth+3] = myKey[3];
+    scratchPad[tid*depth+4] = myKey[4]; scratchPad[tid*depth+5] = myKey[5]; scratchPad[tid*depth+6] = myKey[6]; scratchPad[tid*depth+7] = myKey[7];
+
+    addressPad[tid*depth  ] = myValue[0]; addressPad[tid*depth+1] = myValue[1]; addressPad[tid*depth+2] = myValue[2]; addressPad[tid*depth+3] = myValue[3];
+    addressPad[tid*depth+4] = myValue[4]; addressPad[tid*depth+5] = myValue[5]; addressPad[tid*depth+6] = myValue[6]; addressPad[tid*depth+7] = myValue[7];
+     __syncthreads();
+    //now we merge
+
+    unsigned int j;
+    unsigned int mult = 1;
+    unsigned int steps = 128;
+
+    //Seven Merge steps (2^7)
+
+    while (mult < steps)
+    {
+
+        __syncthreads();
+
+        unsigned int first, last;
+        //Determine the search space for each thread
+        first = (tid/(mult*2))*depth*2*mult;
+        unsigned int midPoint = first+mult*depth;
+
+        //If you are the "right" block or "left" block
+        unsigned int addPart = threadIdx.x%(mult<<1) >= mult ? 1 : 0;
+        //if "right" block search in "left", otherwise search in "right"
+        if(addPart == 0)
+            first += depth*mult;
+
+        last = first+depth*mult-1;
+        j = (first+last)/2;
+
+        unsigned int startAddress = threadIdx.x*depth-midPoint;
+        unsigned int range = last-first;
+
+
+        T cmpValue;
+        __syncthreads();
+
+        //Binary Search
+        switch(range)
+        {
+            case 1023: bin_search_block<T, depth>(cmpValue, myKey[0], scratchPad, j, 256, addPart);
+            case 511: bin_search_block<T, depth>(cmpValue, myKey[0],  scratchPad, j, 128, addPart);
+            case 255: bin_search_block<T, depth>(cmpValue, myKey[0],  scratchPad, j, 64, addPart);
+            case 127: bin_search_block<T, depth>(cmpValue, myKey[0],  scratchPad, j, 32, addPart);
+            case 63: bin_search_block<T, depth>(cmpValue, myKey[0],   scratchPad, j, 16, addPart);
+            case 31: bin_search_block<T, depth>(cmpValue, myKey[0],   scratchPad, j, 8, addPart);
+            case 15: bin_search_block<T, depth>(cmpValue, myKey[0],   scratchPad, j, 4, addPart);
+            case 7: bin_search_block<T, depth>(cmpValue, myKey[0],    scratchPad, j, 2, addPart);
+            case 3: bin_search_block<T, depth>(cmpValue, myKey[0],    scratchPad, j, 1, addPart);
+        }
+        cmpValue = scratchPad[j];
+        myAtomicAddress[0] = j;
+
+        //Binary search done, some post search correction
+        if(cmpValue < myKey[0] || (cmpValue == myKey[0] && addPart == 1))
+            cmpValue = scratchPad[++j];
+        if((cmpValue < myKey[0] || (cmpValue == myKey[0] && addPart == 1)) && j == last)
+            j++;
+
+
+        //Here comes the aggregation setup
+        if(addPart==0)
+        {
+            T cmpValue = scratchPad[myAtomicAddress[0]];
+//            while (cmpValue < myKey[0] ||(cmpValue == myKey[0] && !addressPad[myAtomicAddress[0]]) && myAtomicAddress[0] <= last)
+            while (cmpValue <= myKey[0] && myAtomicAddress[0] <= last)
+                cmpValue = scratchPad[++myAtomicAddress[0]];
+        }
+        else
+            myAtomicAddress[0] = j;
+        //Save first address, then perform linear searches
+//        __syncthreads();
+        myAddress[0] = j + startAddress;
+        myAtomicAddress[0] += startAddress;
+
+        lin_search_aggregate_block<T, depth>(cmpValue, myKey[1], myAddress[1], myAtomicAddress[1], scratchPad, addressPad, j, 1, last, startAddress, addPart,mult);
+        lin_search_aggregate_block<T, depth>(cmpValue, myKey[2], myAddress[2], myAtomicAddress[2], scratchPad, addressPad, j, 2, last, startAddress, addPart,mult);
+        lin_search_aggregate_block<T, depth>(cmpValue, myKey[3], myAddress[3], myAtomicAddress[3], scratchPad, addressPad, j, 3, last, startAddress, addPart,mult);
+        lin_search_aggregate_block<T, depth>(cmpValue, myKey[4], myAddress[4], myAtomicAddress[4], scratchPad, addressPad, j, 4, last, startAddress, addPart,mult);
+        lin_search_aggregate_block<T, depth>(cmpValue, myKey[5], myAddress[5], myAtomicAddress[5], scratchPad, addressPad, j, 5, last, startAddress, addPart,mult);
+        lin_search_aggregate_block<T, depth>(cmpValue, myKey[6], myAddress[6], myAtomicAddress[6], scratchPad, addressPad, j, 6, last, startAddress, addPart,mult);
+        lin_search_aggregate_block<T, depth>(cmpValue, myKey[7], myAddress[7], myAtomicAddress[7], scratchPad, addressPad, j, 7, last, startAddress, addPart,mult);
+//        lin_search_block<T, depth>(cmpValue, myKey[1], myAddress[1], scratchPad, addressPad, j, 1, last, startAddress, addPart);
+//        lin_search_block<T, depth>(cmpValue, myKey[2], myAddress[2], scratchPad, addressPad, j, 2, last, startAddress, addPart);
+//        lin_search_block<T, depth>(cmpValue, myKey[3], myAddress[3], scratchPad, addressPad, j, 3, last, startAddress, addPart);
+//        lin_search_block<T, depth>(cmpValue, myKey[4], myAddress[4], scratchPad, addressPad, j, 4, last, startAddress, addPart);
+//        lin_search_block<T, depth>(cmpValue, myKey[5], myAddress[5], scratchPad, addressPad, j, 5, last, startAddress, addPart);
+//        lin_search_block<T, depth>(cmpValue, myKey[6], myAddress[6], scratchPad, addressPad, j, 6, last, startAddress, addPart);
+//        lin_search_block<T, depth>(cmpValue, myKey[7], myAddress[7], scratchPad, addressPad, j, 7, last, startAddress, addPart);
+
+
+        __syncthreads();
+
+//        myAtomicAddress[1] = myAddress[1];
+//        myAtomicAddress[2] = myAddress[2]; myAtomicAddress[3] = myAddress[3];
+//        myAtomicAddress[4] = myAddress[4]; myAtomicAddress[5] = myAddress[5]; myAtomicAddress[6] = myAddress[6]; myAtomicAddress[7] = myAddress[7];
+
+        addressPad[tid*depth  ] =0; addressPad[tid*depth+1] =0; addressPad[tid*depth+2] =0; addressPad[tid*depth+3] =0;
+        addressPad[tid*depth+4] =0; addressPad[tid*depth+5] =0; addressPad[tid*depth+6] =0; addressPad[tid*depth+7] =0;
+
+        __syncthreads();
+
+        atomicAdd(&addressPad[myAtomicAddress[0]], myValue[0]); atomicAdd(&addressPad[myAtomicAddress[1]], myValue[1]); atomicAdd(&addressPad[myAtomicAddress[2]], myValue[2]); atomicAdd(&addressPad[myAtomicAddress[3]], myValue[3]);
+        atomicAdd(&addressPad[myAtomicAddress[4]], myValue[4]); atomicAdd(&addressPad[myAtomicAddress[5]], myValue[5]); atomicAdd(&addressPad[myAtomicAddress[6]], myValue[6]); atomicAdd(&addressPad[myAtomicAddress[7]], myValue[7]);
+        //Save Key values in correct addresses -- Unrolled for performance
+
+        scratchPad[myAddress[0]] = myKey[0]; scratchPad[myAddress[1]] = myKey[1]; scratchPad[myAddress[2]] = myKey[2]; scratchPad[myAddress[3]] = myKey[3];
+        scratchPad[myAddress[4]] = myKey[4]; scratchPad[myAddress[5]] = myKey[5]; scratchPad[myAddress[6]] = myKey[6]; scratchPad[myAddress[7]] = myKey[7];
+        __syncthreads();
+
+
+        if(mult < steps)
+        {
+            __syncthreads();
+            //Grab new key values -- Unrolled for performance
+            myKey[0] = scratchPad[tid*depth];     myKey[1] = scratchPad[tid*depth+1];   myKey[2] = scratchPad[tid*depth+2];   myKey[3] = scratchPad[tid*depth+3];
+            myKey[4] = scratchPad[tid*depth+4];   myKey[5] = scratchPad[tid*depth+5];   myKey[6] = scratchPad[tid*depth+6];   myKey[7] = scratchPad[tid*depth+7];
+            myValue[0] = addressPad[tid*depth];   myValue[1] = addressPad[tid*depth+1]; myValue[2] = addressPad[tid*depth+2]; myValue[3] = addressPad[tid*depth+3];
+            myValue[4] = addressPad[tid*depth+4]; myValue[5] = addressPad[tid*depth+5]; myValue[6] = addressPad[tid*depth+6]; myValue[7] = addressPad[tid*depth+7];
+        }
+        __syncthreads();
+        mult*=2;
+    }
+    __syncthreads();
+
+//    Coalesced Write back to Memory
+#pragma unroll
+for(int i=tid;i<blockSize && bid*blockSize+i < totalSize ;i+= CTA_BLOCK)
+{
+
+A_keys[bid*blockSize+i] = scratchPad[i];
+A_values[bid*blockSize+i] = addressPad[i];
+}
+
+}
+
+template<class T, int depth>
+__global__
 void blockWiseSort(T *A_keys, unsigned int* A_values, int blockSize, size_t totalSize)
 {
     //load into registers
@@ -1189,8 +1401,7 @@ index = (cmpValue < myKey[0] ? index+1 : index);
 //Save Key-Value Pair
 if((myKey[0] <= localMaxB && myKey[0] >= localMinB) || (bIndex+index) >= (partitionSizeB)  || (index > 0 && index <INTERSECT_B_BLOCK_SIZE_simple))
 {
-    if(myStartIdxA + aIndex+ depth*tid<8192 && myValue[0])
-        printf("changing value position 1 %d --> %d (%d,%d)\n",myStartIdxA + aIndex+ depth*tid,globalCAddress + index ,myKey[1],myValue[1]);
+
 A_keys_out  [globalCAddress + index] = myKey[0]; A_values_out[globalCAddress + index] = myValue[0]; }
 
 while(BKeys[index] < myKey[1] && index < INTERSECT_B_BLOCK_SIZE_simple)
@@ -1199,7 +1410,6 @@ index++;
 if(((myKey[1] <= localMaxB && myKey[1] >= localMinB) || bIndex+index >= (partitionSizeB)) && (aIndex+tid*depth+1< sizePerPartition))
 {
     if(myStartIdxA + aIndex+ depth*tid<8192 && myValue[1])
-        printf("changing value position 2 %d --> %d (%d,%d)\n",myStartIdxA + aIndex+ depth*tid + 1,globalCAddress + index + 1 ,myKey[1],myValue[1]);
     A_keys_out[globalCAddress+index+1] =  myKey[1];	A_values_out[globalCAddress+index+1] = myValue[1]; }
 }
 
@@ -1455,6 +1665,7 @@ template<class T, int depth>
 __global__
 void simpleMerge_aggregate(T *A_keys, unsigned int* A_values, int sizePerPartition, int size,short it)
 {
+
 //each block will be responsible for aggregation of lower chunk with higher chunk
 int myId = blockIdx.x; int tid = threadIdx.x;
 int myStartIdxA = 2*myId*sizePerPartition;   int myStartIdxB = (2*myId+1)*sizePerPartition;  int myStartIdxC = myStartIdxA;
@@ -1542,42 +1753,35 @@ do
     __syncthreads();
     index = 0;
 
-    if((myValue[0] || myValue[1]) && (myKey[0] <= localMaxB && myKey[depth-1] >= localMinB ||  (bIndex+INTERSECT_B_BLOCK_SIZE_simple) >= sizePerPartition) && (aIndex+depth*tid < partitionSizeB))
+    if( (myValue[0] || myValue[1]) &&
+        (myKey[0] <= localMaxB && myKey[depth-1] >= localMinB ||
+        (bIndex+INTERSECT_B_BLOCK_SIZE_simple) > sizePerPartition) &&
+        (aIndex+depth*tid+1 < partitionSizeB) ) //This is correct
     {
+
         binSearch_whole_higher(BKeys, index, myKey[0]);
         T cmpValue = BKeys[index];
         while(cmpValue <= myKey[0] && index < INTERSECT_B_BLOCK_SIZE_simple)
             cmpValue = BKeys[++index];
+        --index;
+        //        index = (cmpValue <= myKey[0] ? index + 1 : index);
 
-        index = (cmpValue <= myKey[0] ? index + 1 : index);
-
-        index--;
-
-        //End Binary Search
-        //binary search done for first element in our set (A_0)
+        //Insert from binary search
         if(myKey[0] >= localMinB && myValue[0] )
         {
-            if(A_values[myStartIdxB + bIndex + index] != myValue[0] && (myStartIdxB + bIndex + index )<8192){
-
-                printf("updating %d) is  %d + %d + %d resetting %d) is %d + %d + %d * %d\n",myStartIdxB + bIndex + index,myStartIdxB , bIndex , index, myStartIdxA + aIndex + depth * tid, myStartIdxA , aIndex , depth , tid);
-                printf("updating 0(%d)* with %d) %d and %d) %d giving %d\n",myKey[0],myStartIdxB + bIndex + index,A_values[myStartIdxB + bIndex + index],myStartIdxA + aIndex + depth * tid,myValue[0],A_values[myStartIdxB + bIndex + index] +myValue[0]);
-            }
-
             A_values[myStartIdxB + bIndex + index] += myValue[0];
             A_values[myStartIdxA + aIndex + depth * tid] = 0;
-//            printf("updating 0 with  %d) %d and %d) %d\n",myStartIdxB + bIndex + index - it, A_values[myStartIdxB + bIndex + index - it], myStartIdxA + aIndex + depth * tid, myValue[0]);
         }
 
         while(BKeys[index] <= myKey[1] && index < INTERSECT_B_BLOCK_SIZE_simple )
-            index++;
-        index--;
+            ++index;
+        --index;
         //Save Key-Value Pair
-        if( myValue[1]  && ((myKey[1] <= localMaxB && myKey[1] >= localMinB) || bIndex+index >=sizePerPartition) && (aIndex+depth*tid+1 < partitionSizeB))
+        if( myValue[1]  &&
+            myKey[1] <= localMaxB // && //||        bIndex+index >=sizePerPartition
+//            aIndex+depth*tid+1 < partitionSizeB
+        )
         {
-            if(A_values[myStartIdxB + bIndex + index] != myValue[1] && (myStartIdxB + bIndex + index )<8192){
-                printf("updating %d) is  %d + %d + %d resetting %d) is %d + %d + %d * %d\n",myStartIdxB + bIndex + index,myStartIdxB , bIndex , index, myStartIdxA + aIndex + depth * tid + 1, myStartIdxA , aIndex , depth , tid);
-                printf("updating 1(%d)* with %d) %d and %d) %d<-->%d giving %d\n",myKey[0],myStartIdxB + bIndex + index,A_values[myStartIdxB + bIndex + index],myStartIdxA + aIndex + depth * tid + 1,myValue[1], A_values[myStartIdxA + aIndex + depth * tid + 1], A_values[myStartIdxB + bIndex + index] +myValue[1]);
-            }
             A_values[myStartIdxB + bIndex + index] += myValue[1];
             A_values[myStartIdxA + aIndex + depth * tid + 1] = 0;
         }

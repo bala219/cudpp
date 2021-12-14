@@ -77,25 +77,24 @@ __device__ void bin_search_block(T &cmpValue, T tmpVal, T* in, unsigned int & j,
  **/
 			
 template<class T, int depth>
-		__device__ void lin_search_block(T &cmpValue, T mVal, unsigned int &tmpVal,unsigned int &atomicIndex, T* in, unsigned int* addressPad, unsigned int &j,
-								 unsigned int offset, unsigned int last, unsigned int startAddress, unsigned int addPart)
+__device__ void lin_search_block(T &cmpValue, T mVal, unsigned int &tmpVal, T* in, unsigned int* addressPad, unsigned int &j,
+                         unsigned int offset, unsigned int last, unsigned int startAddress, unsigned int addPart)
 {			
-	
-	while (cmpValue < mVal && j < last)		
-		cmpValue = in[++j];			
-	while (cmpValue == mVal && j < last && addPart == 1)
-		cmpValue = in[++j];	
-	
-	//Corner case to handle being at the edge of our shared memory search
-    j = (j==last && (cmpValue < mVal || (cmpValue == mVal && addPart == 1)) ? j+1 : j);	
-	
-    tmpVal = j+startAddress+offset;
-    atomicIndex = tmpVal;
+
+while (cmpValue < mVal && j < last)
+cmpValue = in[++j];
+while (cmpValue == mVal && j < last && addPart == 1)
+cmpValue = in[++j];
+
+//Corner case to handle being at the edge of our shared memory search
+j = (j==last && (cmpValue < mVal || (cmpValue == mVal && addPart == 1)) ? j+1 : j);
+
+tmpVal = j+startAddress+offset;
 }
 
 template<class T, int depth>
 __device__ void lin_search_aggregate_block(T &cmpValue, T mVal, unsigned int &tmpVal,unsigned int &atomicIndex, T* in, unsigned int* addressPad, unsigned int &j,
-										   unsigned int offset, unsigned int last, unsigned int startAddress, unsigned int addPart)
+										   unsigned int offset, unsigned int last, unsigned int startAddress, unsigned int addPart,int mult)
 										   {
 
 	while (cmpValue < mVal && j < last)
@@ -107,14 +106,33 @@ __device__ void lin_search_aggregate_block(T &cmpValue, T mVal, unsigned int &tm
 		cmpValue = in[++j];
 	j = (j==last && (cmpValue < mVal || (cmpValue == mVal && addPart == 1)) ? j+1 : j);
 
+
+//	//New atomic implementation
+//	if(addPart == 0){
+//
+//		T cmpValue = in[atomicIndex];
+//		while(cmpValue == in[atomicIndex] && !addressPad[atomicIndex]  && atomicIndex <=last)
+//			in[++atomicIndex];
+//	}
+//	atomicIndex += startAddress;
+
 	//Atomic Implementation starts here
-	while (NewCmpValue == mVal && atomicIndex < last && addPart == 0)
-		NewCmpValue = in[++atomicIndex];
-	atomicIndex = (atomicIndex==last && (NewCmpValue < mVal || (NewCmpValue == mVal && addPart == 0)) ? atomicIndex+1 : atomicIndex);
+	if(addPart == 0)
+	{
+//		int tid = threadIdx.x;
+//		int first = (tid/(mult*2))*depth*2*mult;
+//		last = first+depth*mult-1;
+		while (NewCmpValue == mVal && atomicIndex <= last)
+			NewCmpValue = in[++atomicIndex];
+	}
+	else
+		atomicIndex = j;
+
+	atomicIndex += startAddress+offset;
 
 	tmpVal = j+startAddress+offset;
-	atomicIndex = atomicIndex+startAddress+offset;
-										   }
+
+}
 
 /** @brief For blockSort. Compares two values and decides to swap if A1 > A2
 * @param[in,out] A1 First value being compared
@@ -141,6 +159,27 @@ __device__ void compareSwapAggVal(T &A1, T &A2, unsigned int& ref1, unsigned int
 			ref2 = tmp2;
 		}
 	}
+
+/** @brief For blockSort. Compares two values and decides to swap if A1 > A2
+* @param[in,out] A1 First value being compared
+* @param[in,out] A2 Second value being compared
+* @param[in,out] ref1 Local address of A1
+* @param[in,out] ref2 Local address of A2
+**/
+template<class T>
+__device__ void compareSwapVal(T &A1, T &A2, unsigned int& ref1, unsigned int& ref2)
+{
+    if(A1 > A2)
+    {
+        T tmp = A1;
+        A1 = A2;
+        A2 = tmp;
+
+        unsigned int tmp2 = ref1;
+        ref1 = ref2;
+        ref2 = tmp2;
+    }
+}
 
 
 template<class T>
