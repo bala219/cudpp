@@ -6,4 +6,4 @@ get_filename_component(_install_dir "${_dir}/.." ABSOLUTE)
 get_filename_component(_dir "${CMAKE_CURRENT_LIST_FILE}" PATH)
 include("${_install_dir}/lib/cudpp-targets.cmake")
 
-set(cudpp_INCLUDE_DIRS "/media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/include;/media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/ext/moderngpu/include/;/media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/ext/cub/")
+set(cudpp_INCLUDE_DIRS "/home/gurumurt/projects/cudpp-master/include;/home/gurumurt/projects/cudpp-master/ext/moderngpu/include/;/home/gurumurt/projects/cudpp-master/ext/cub/")

@@ -2,15 +2,11 @@
 <project version="4">
   <component name="PublishConfigData" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
-      <paths name="Thanos (84c6d6d5-19c4-4a0c-99e8-506a0eb39cf3)">
+      <paths name="Thanos">
         <serverdata>
           <mappings>
-            <mapping deploy="/tmp/tmp.PsMKT2eaDQ" local="$PROJECT_DIR$" />
+            <mapping deploy="/tmp/tmp.ci8jYefVbk" local="$PROJECT_DIR$" />
           </mappings>
-          <excludedPaths>
-            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-debug" />
-            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-debug-remote" />
-          </excludedPaths>
         </serverdata>
       </paths>
     </serverData>
