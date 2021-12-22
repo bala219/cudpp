@@ -1,6 +1,6 @@
 file(REMOVE_RECURSE
-  "../../lib/libcudpp.a"
-  "../../lib/libcudpp.pdb"
+  "../../lib/libcudpp64d.a"
+  "../../lib/libcudpp64d.pdb"
   "CMakeFiles/cudpp.dir/__/__/ext/moderngpu/src/cudpp_generated_mgpucontext.cu.o"
   "CMakeFiles/cudpp.dir/__/__/ext/moderngpu/src/mgpuutil.cpp.o"
   "CMakeFiles/cudpp.dir/app/cudpp_generated_compact_app.cu.o"

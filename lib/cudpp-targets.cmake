@@ -4,7 +4,7 @@ if("${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}" LESS 2.5)
    message(FATAL_ERROR "CMake >= 2.6.0 required")
 endif()
 cmake_policy(PUSH)
-cmake_policy(VERSION 2.6)
+cmake_policy(VERSION 2.6...3.18)
 #----------------------------------------------------------------
 # Generated CMake target import file.
 #----------------------------------------------------------------
@@ -47,20 +47,20 @@ add_library(cudpp STATIC IMPORTED)
 # Create imported target cudpp_hash
 add_library(cudpp_hash STATIC IMPORTED)
 
-# Import target "cudpp" for configuration ""
-set_property(TARGET cudpp APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
+# Import target "cudpp" for configuration "Debug"
+set_property(TARGET cudpp APPEND PROPERTY IMPORTED_CONFIGURATIONS DEBUG)
 set_target_properties(cudpp PROPERTIES
-  IMPORTED_LINK_INTERFACE_LANGUAGES_NOCONFIG "CXX"
-  IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG "/usr/local/cuda-11.0/lib64/libcudart_static.a;-lpthread;dl;/usr/lib/x86_64-linux-gnu/librt.so"
-  IMPORTED_LOCATION_NOCONFIG "/home/gurumurt/projects/cudpp-master/lib/libcudpp.a"
+  IMPORTED_LINK_INTERFACE_LANGUAGES_DEBUG "CXX"
+  IMPORTED_LINK_INTERFACE_LIBRARIES_DEBUG "/usr/local/cuda-10.1/lib64/libcudart_static.a;Threads::Threads;dl;/usr/lib/x86_64-linux-gnu/librt.so"
+  IMPORTED_LOCATION_DEBUG "/media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/lib/libcudpp64d.a"
   )
 
-# Import target "cudpp_hash" for configuration ""
-set_property(TARGET cudpp_hash APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
+# Import target "cudpp_hash" for configuration "Debug"
+set_property(TARGET cudpp_hash APPEND PROPERTY IMPORTED_CONFIGURATIONS DEBUG)
 set_target_properties(cudpp_hash PROPERTIES
-  IMPORTED_LINK_INTERFACE_LANGUAGES_NOCONFIG "CXX"
-  IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG "/usr/local/cuda-11.0/lib64/libcudart_static.a;-lpthread;dl;/usr/lib/x86_64-linux-gnu/librt.so;cudpp"
-  IMPORTED_LOCATION_NOCONFIG "/home/gurumurt/projects/cudpp-master/lib/libcudpp_hash.a"
+  IMPORTED_LINK_INTERFACE_LANGUAGES_DEBUG "CXX"
+  IMPORTED_LINK_INTERFACE_LIBRARIES_DEBUG "/usr/local/cuda-10.1/lib64/libcudart_static.a;Threads::Threads;dl;/usr/lib/x86_64-linux-gnu/librt.so;cudpp"
+  IMPORTED_LOCATION_DEBUG "/media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/lib/libcudpp_hash64d.a"
   )
 
 # This file does not depend on other imported targets which have

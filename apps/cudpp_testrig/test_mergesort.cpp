@@ -131,15 +131,19 @@ int mergeSortTest(CUDPPHandle theCudpp, CUDPPConfiguration config, size_t *tests
 
         size_t totalCount = 0;
         size_t distinctValuesCount = 0;
-        for(size_t i=0;i<tests[k];i++)//4096
+        size_t startLimit = 0;
+//        size_t limit = tests[k];
+        size_t limit = tests[k];
+        for(size_t i=startLimit;i<limit;i++)
         {
-            if(h_valuesSorted[i] ){ // if(h_keysSorted[i]==0)
+//            if(h_valuesSorted[i]){
+//            if(h_keysSorted[i]){ //
                 totalCount += h_valuesSorted[i];
                    printf("%d -- %d(%d)\n",(int)i,(int)h_keysSorted[i],(int)h_valuesSorted[i]);
                    distinctValuesCount++;
-            }
+//            }
         }
-        printf("summation : %d difference : %d count : %d\n",(int)totalCount,tests[k]-totalCount,distinctValuesCount);
+        printf("summation : %d difference : %d count : %d\n",(int)totalCount,limit-totalCount-startLimit,distinctValuesCount);
 
 /*#define START 0
 #define END 10
@@ -252,7 +256,7 @@ int testMergeSort(int argc, const char **argv, const CUDPPConfiguration *configP
 //            256
 //            512
             //1024
-            1<<20
+            1<<13
 //            4096
 //            8192
 //            10000

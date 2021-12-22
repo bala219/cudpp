@@ -1,4 +1,4 @@
-# Install script for directory: /home/gurumurt/projects/cudpp-master/src/cudpp
+# Install script for directory: /media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/src/cudpp
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -12,7 +12,7 @@ if(NOT DEFINED CMAKE_INSTALL_CONFIG_NAME)
     string(REGEX REPLACE "^[^A-Za-z0-9_]+" ""
            CMAKE_INSTALL_CONFIG_NAME "${BUILD_TYPE}")
   else()
-    set(CMAKE_INSTALL_CONFIG_NAME "")
+    set(CMAKE_INSTALL_CONFIG_NAME "Debug")
   endif()
   message(STATUS "Install configuration: \"${CMAKE_INSTALL_CONFIG_NAME}\"")
 endif()
@@ -37,22 +37,27 @@ if(NOT DEFINED CMAKE_CROSSCOMPILING)
   set(CMAKE_CROSSCOMPILING "FALSE")
 endif()
 
+# Set default install directory permissions.
+if(NOT DEFINED CMAKE_OBJDUMP)
+  set(CMAKE_OBJDUMP "/usr/bin/objdump")
+endif()
+
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/include" TYPE FILE FILES
-    "/home/gurumurt/projects/cudpp-master/include/cudpp.h"
-    "/home/gurumurt/projects/cudpp-master/include/cudpp_config.h"
+    "/media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/include/cudpp.h"
+    "/media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/include/cudpp_config.h"
     )
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" TYPE STATIC_LIBRARY FILES "/home/gurumurt/projects/cudpp-master/lib/libcudpp.a")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" TYPE STATIC_LIBRARY FILES "/media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/lib/libcudpp64d.a")
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
   if(EXISTS "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/cudpp-targets.cmake")
     file(DIFFERENT EXPORT_FILE_CHANGED FILES
          "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/cudpp-targets.cmake"
-         "/home/gurumurt/projects/cudpp-master/src/cudpp/CMakeFiles/Export/lib/cudpp-targets.cmake")
+         "/media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/src/cudpp/CMakeFiles/Export/lib/cudpp-targets.cmake")
     if(EXPORT_FILE_CHANGED)
       file(GLOB OLD_CONFIG_FILES "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/cudpp-targets-*.cmake")
       if(OLD_CONFIG_FILES)
@@ -61,9 +66,9 @@ if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_
       endif()
     endif()
   endif()
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" TYPE FILE FILES "/home/gurumurt/projects/cudpp-master/src/cudpp/CMakeFiles/Export/lib/cudpp-targets.cmake")
-  if("${CMAKE_INSTALL_CONFIG_NAME}" MATCHES "^()$")
-    file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" TYPE FILE FILES "/home/gurumurt/projects/cudpp-master/src/cudpp/CMakeFiles/Export/lib/cudpp-targets-noconfig.cmake")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" TYPE FILE FILES "/media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/src/cudpp/CMakeFiles/Export/lib/cudpp-targets.cmake")
+  if("${CMAKE_INSTALL_CONFIG_NAME}" MATCHES "^([Dd][Ee][Bb][Uu][Gg])$")
+    file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" TYPE FILE FILES "/media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/src/cudpp/CMakeFiles/Export/lib/cudpp-targets-debug.cmake")
   endif()
 endif()
 

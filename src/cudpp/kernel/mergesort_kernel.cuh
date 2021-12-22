@@ -1382,24 +1382,21 @@ globalCAddress = myStartIdxC + bIndex + aIndex + tid*depth;
 index = 0;
 
 
-if((
-//        !(myKey[depth-1] < localMinB || myKey[0] > localMaxB)
-(myKey[depth-1] >= localMinB && myKey[0] <= localMaxB)||
+//if((!(myKey[depth-1] < localMinB || myKey[0] > localMaxB) || (bIndex+INTERSECT_B_BLOCK_SIZE_simple) >= partitionSizeB ) && (aIndex + tid*depth) < sizePerPartition)
+if((!(myKey[depth-1] < localMinB || myKey[0] > localMaxB) ||
 (bIndex+INTERSECT_B_BLOCK_SIZE_simple) >= (partitionSizeB-1)) && (aIndex + tid*depth) < sizePerPartition)
 {
 
 binSearch_whole_lower<T>(BKeys, index, myKey[0]);
-
 T cmpValue = BKeys[index];
 if(cmpValue < myKey[0] && index < INTERSECT_B_BLOCK_SIZE_simple)
 cmpValue = BKeys[++index];
-
 
 index = (cmpValue < myKey[0] ? index+1 : index);
 
 
 //Save Key-Value Pair
-if((myKey[0] <= localMaxB && myKey[0] >= localMinB) || (bIndex+index) >= (partitionSizeB)  || (index > 0 && index <INTERSECT_B_BLOCK_SIZE_simple))
+if((myKey[0] < localMaxB && myKey[0] > localMinB) || (bIndex+index) >= (partitionSizeB)  || (index > 0 && index <INTERSECT_B_BLOCK_SIZE_simple))
 {
 
 A_keys_out  [globalCAddress + index] = myKey[0]; A_values_out[globalCAddress + index] = myValue[0]; }
@@ -1407,18 +1404,15 @@ A_keys_out  [globalCAddress + index] = myKey[0]; A_values_out[globalCAddress + i
 while(BKeys[index] < myKey[1] && index < INTERSECT_B_BLOCK_SIZE_simple)
 index++;
 //save Key-Value Pair
-if(((myKey[1] <= localMaxB && myKey[1] >= localMinB) || bIndex+index >= (partitionSizeB)) && (aIndex+tid*depth+1< sizePerPartition))
+if(((myKey[1] <= localMaxB && myKey[1] > localMinB) || bIndex+index >= (partitionSizeB)) && (aIndex+tid*depth+1< sizePerPartition))
 {
-    if(myStartIdxA + aIndex+ depth*tid<8192 && myValue[1])
-    A_keys_out[globalCAddress+index+1] =  myKey[1];	A_values_out[globalCAddress+index+1] = myValue[1]; }
+    A_keys_out[globalCAddress+index+1] =  myKey[1];	A_values_out[globalCAddress+index+1] = myValue[1];
+}
 }
 
 __syncthreads();
 if((localMaxA <= localMaxB || (bIndex+INTERSECT_B_BLOCK_SIZE_simple) >= partitionSizeB) && (aIndex+INTERSECT_A_BLOCK_SIZE_simple) < sizePerPartition)
 {
-
-
-
 aIndex += INTERSECT_A_BLOCK_SIZE_simple;
 
 if(aIndex + INTERSECT_A_BLOCK_SIZE_simple < sizePerPartition) {
@@ -1436,6 +1430,195 @@ myValue[i] = (aIndex+depth*tid + i < sizePerPartition ? A_values[myStartIdxA + a
 if(tid == CTASIZE_simple-1)
 BMax[1] = myKey[depth-1]; //localMaxA for all threads
 }
+
+else if(localMaxB < localMaxA && (bIndex+INTERSECT_B_BLOCK_SIZE_simple) < partitionSizeB)
+{
+localMinB = localMaxB;
+//Use INT_MAX as an "invalid/no-value" type in case the streaming window cannot be filled
+bIndex += INTERSECT_B_BLOCK_SIZE_simple;
+
+if(bIndex + INTERSECT_B_BLOCK_SIZE_simple < partitionSizeB) {
+int bi = tid;
+#pragma unroll
+for(int i = 0;i < INTERSECT_B_BLOCK_SIZE_simple/CTASIZE_simple; i++, bi+=CTASIZE_simple) {
+BKeys[bi] =   A_keys[myStartIdxB + bIndex + bi];
+}
+}
+else {
+int bi = tid;
+#pragma unroll
+for(int i = 0;i < INTERSECT_B_BLOCK_SIZE_simple/CTASIZE_simple; i++, bi+=CTASIZE_simple) {
+BKeys[bi] =   (bIndex + bi < partitionSizeB ? A_keys[myStartIdxB + bIndex + bi]   : MAX_VAL);
+}
+}
+
+if(tid == 0)
+BMax[0] =  (bIndex + INTERSECT_B_BLOCK_SIZE_simple < partitionSizeB ? A_keys[myStartIdxB + bIndex + INTERSECT_B_BLOCK_SIZE_simple] : MAX_VAL);
+}
+else
+breakout = true;
+
+
+__syncthreads();
+
+localMaxB = BMax[0];
+localMaxA = BMax[1];
+}
+while(!breakout);
+}
+
+
+/** @brief Merges the indices for the "lower" block (left block)
+ *
+ * Utilizes a "ping-pong" strategy
+ * @param[in] A_keys  Global array of keys to be merged
+ * @param[in] A_values  Global array of values to be merged
+ * @param[out] A_keys_out  Resulting array of keys merged
+ * @param[out] A_values_out  Resulting array of values merged
+ * @param[in] sizePerPartition Size of each partition being merged
+ * @param[in] size Size of total Array being sorted
+ **/
+template<class T, int depth>
+__global__
+void simpleMerge_lower_basics(T *A_keys, unsigned int* A_values, T *A_keys_out, unsigned int *A_values_out, int sizePerPartition, int size,short it)
+{
+//each block will be responsible for a submerge
+int myId = blockIdx.x; int tid = threadIdx.x;
+int myStartIdxA = 2*myId*sizePerPartition;   int myStartIdxB = (2*myId+1)*sizePerPartition;  int myStartIdxC = myStartIdxA;
+int partitionSizeB = sizePerPartition < (size - myStartIdxB) ? sizePerPartition : size - myStartIdxB;
+
+T MAX_VAL = getMax<T>();
+T MIN_VAL = getMin<T>();
+unsigned int UMAX_VAL = getMax<unsigned int>();
+//__shared__ T BKeys[INTERSECT_B_BLOCK_SIZE_simple+2];
+#if (__CUDA_ARCH__ >= 200)
+extern __shared__ char shared[];
+#else
+extern __shared__ unsigned int shared[];
+#endif
+T* BKeys =  (T*) shared;
+T* BMax = (T*) &BKeys[INTERSECT_B_BLOCK_SIZE_simple];
+T localMaxB, localMaxA, localMinB;
+
+int globalCAddress;
+int index, bIndex = 0, aIndex = 0;
+bool breakout = false;
+
+T myKey[depth];
+unsigned int myValue[depth];
+
+
+//Load Registers
+if(aIndex + INTERSECT_A_BLOCK_SIZE_simple < sizePerPartition)
+{
+#pragma unroll
+for(int i = 0;i < depth; i++)
+{
+myKey[i]   = A_keys  [myStartIdxA + aIndex + depth*tid + i];
+myValue[i] = A_values[myStartIdxA + aIndex + depth*tid + i];
+}
+}
+else
+{
+#pragma unroll
+for(int i = 0;i < depth; i++)
+{
+myKey[i] =   (aIndex+depth*tid + i < sizePerPartition ? A_keys  [myStartIdxA + aIndex+ depth*tid + i]   : MAX_VAL);
+myValue[i] = (aIndex+depth*tid + i < sizePerPartition ? A_values[myStartIdxA + aIndex+ depth*tid + i]   : UMAX_VAL);
+}
+}
+
+//load smem values
+if(bIndex + INTERSECT_B_BLOCK_SIZE_simple < partitionSizeB)
+{
+int bi = tid;
+#pragma unroll
+for(int i = 0;i < INTERSECT_B_BLOCK_SIZE_simple/CTASIZE_simple; i++, bi+=CTASIZE_simple)
+{
+BKeys[bi] = A_keys[myStartIdxB + bIndex + bi];
+}
+}
+else
+{
+int bi = tid;
+#pragma unroll
+for(int i = 0;i < INTERSECT_B_BLOCK_SIZE_simple/CTASIZE_simple; i++, bi+=CTASIZE_simple)
+{ BKeys[bi] = (bIndex + bi < partitionSizeB ? A_keys[myStartIdxB + bIndex + bi] : MAX_VAL);}
+}
+
+
+//Save localMaxA and localMaxB
+if(tid == CTASIZE_simple-1)
+BMax[1] = myKey[depth-1];
+if(tid == 0)
+BMax[0] =  (bIndex + INTERSECT_B_BLOCK_SIZE_simple - 1 < partitionSizeB ?
+A_keys[myStartIdxB + bIndex + INTERSECT_B_BLOCK_SIZE_simple - 1] : MAX_VAL);
+
+__syncthreads();
+
+//Maximum values for B and A in this stream
+localMinB = MIN_VAL;
+localMaxB = BMax[0];
+localMaxA = BMax[1];
+
+do
+{
+__syncthreads();
+globalCAddress = myStartIdxC + bIndex + aIndex + tid*depth;
+index = 0;
+
+if((!(myKey[depth-1] < localMinB || myKey[0] > localMaxB) ||
+(bIndex+INTERSECT_B_BLOCK_SIZE_simple) >= (partitionSizeB-1)) && (aIndex + tid*depth) < sizePerPartition)
+{
+
+binSearch_whole_lower<T>(BKeys, index, myKey[0]);
+T cmpValue = BKeys[index];
+if(cmpValue < myKey[0] && index < INTERSECT_B_BLOCK_SIZE_simple)
+cmpValue = BKeys[++index];
+
+index = (cmpValue < myKey[0] ? index+1 : index);
+
+//Save Key-Value Pair
+if((myKey[0] < localMaxB && myKey[0] > localMinB) || (bIndex+index) >= (partitionSizeB)  || (index > 0 && index <INTERSECT_B_BLOCK_SIZE_simple))
+{
+//if(myKey[0] == 2)
+//    printf("%d) SML 2 from %d inserted in %d(%d + %d + %d + %d + %d)\n",myId, myStartIdxA + aIndex + depth*tid,globalCAddress+index, myStartIdxC , bIndex , aIndex , depth*tid,index );
+
+A_keys_out  [globalCAddress + index] = myKey[0]; A_values_out[globalCAddress + index] = myValue[0];
+}
+
+while(BKeys[index] < myKey[1] && index < INTERSECT_B_BLOCK_SIZE_simple)
+index++;
+
+if(((myKey[1] <= localMaxB && myKey[1] > localMinB) || bIndex+index >= (partitionSizeB)) && (aIndex+tid*depth+1< sizePerPartition))
+{
+//    if(myKey[1] == 2)
+//        printf("%d) SML 2 from %d inserted in %d(%d + %d + %d + %d + %d)\n",myId, myStartIdxA + aIndex + depth*tid+1,globalCAddress+index+1, myStartIdxC , bIndex , aIndex , depth*tid,index );
+    A_keys_out[globalCAddress+index+1] =  myKey[1];	A_values_out[globalCAddress+index+1] = myValue[1];
+}
+}
+
+__syncthreads();
+if((localMaxA <= localMaxB || (bIndex+INTERSECT_B_BLOCK_SIZE_simple) >= partitionSizeB) && (aIndex+INTERSECT_A_BLOCK_SIZE_simple) < sizePerPartition)
+{
+aIndex += INTERSECT_A_BLOCK_SIZE_simple;
+
+if(aIndex + INTERSECT_A_BLOCK_SIZE_simple < sizePerPartition) {
+for(int i = 0;i < depth; i++) {
+myKey[i] =   A_keys  [myStartIdxA + aIndex+ depth*tid + i];
+myValue[i] = A_values[myStartIdxA + aIndex + depth*tid + i];
+}
+}
+else {
+for(int i = 0;i < depth; i++) {
+myKey[i] = (aIndex+depth*tid + i < sizePerPartition ? A_keys[myStartIdxA + aIndex+ depth*tid + i]   : MAX_VAL);
+myValue[i] = (aIndex+depth*tid + i < sizePerPartition ? A_values[myStartIdxA + aIndex+ depth*tid + i]   : UMAX_VAL);
+}
+}
+if(tid == CTASIZE_simple-1)
+BMax[1] = myKey[depth-1]; //localMaxA for all threads
+}
+
 else if(localMaxB < localMaxA && (bIndex+INTERSECT_B_BLOCK_SIZE_simple) < partitionSizeB)
 {
 localMinB = localMaxB;
@@ -1487,61 +1670,76 @@ __global__
 void simpleMerge_higher_basic(T *A_keys, unsigned int* A_values, T* A_keys_out, unsigned int *A_values_out, int sizePerPartition, int size,short it)
 {
 
-    T MAX_VAL = getMax<T>();
-    T MIN_VAL = getMin<T>();
-    unsigned int UMAX_VAL = getMax<unsigned int>();
+int myId = blockIdx.x; int tid = threadIdx.x;
+int myStartIdxA = (2*myId+1)*sizePerPartition;    int myStartIdxB = 2*myId*sizePerPartition; int myStartIdxC = myStartIdxB;
+int partitionSizeA = (sizePerPartition < (size - myStartIdxA) ? sizePerPartition : size - myStartIdxA);
+int partitionSizeB = (sizePerPartition < (size - myStartIdxB) ? sizePerPartition : size - myStartIdxB);
 
-    int myId = blockIdx.x;
-    int myStartIdxB = 2*myId*sizePerPartition;
-    int myStartIdxA = (2*myId+1)*sizePerPartition;
-    int myStartIdxC = myStartIdxB;
-    T nextMaxB, nextMaxA, localMaxB, localMinB;
-
-    int partitionSizeA = (sizePerPartition < (size - myStartIdxA) ? sizePerPartition : size - myStartIdxA);
-
-
-    int index, bIndex = 0, aIndex = 0;
+T MAX_VAL = getMax<T>();
+T MIN_VAL = getMin<T>();
+unsigned int UMAX_VAL = getMax<unsigned int>();
 #if (__CUDA_ARCH__ >= 200)
-    extern __shared__ char shared[];
+extern __shared__ char shared[];
 #else
-    extern __shared__ unsigned int shared[];
+extern __shared__ unsigned int shared[];
 #endif
-    T* BKeys =  (T*) shared;
-    //__shared__ T BKeys[INTERSECT_B_BLOCK_SIZE_simple+3];
-    T* BMax = (T*) &BKeys[INTERSECT_B_BLOCK_SIZE_simple];
+T* BKeys =  (T*) shared;
+//__shared__ T BKeys[INTERSECT_B_BLOCK_SIZE_simple+3];
+T* BMax = (T*) &BKeys[INTERSECT_B_BLOCK_SIZE_simple];
+T nextMaxB, nextMaxA, localMaxB, localMinB;
 
-    bool breakout = false;
-    int tid = threadIdx.x;
+int globalCAddress;
+int index, bIndex = 0, aIndex = 0;
+bool breakout = false;
 
-    T myKey[depth];
-    unsigned int myValue[depth];
+T myKey[depth];
+unsigned int myValue[depth];
 
+//Load registers
+if(aIndex + INTERSECT_A_BLOCK_SIZE_simple < sizePerPartition)
+{
 #pragma unroll
-    for(int i =0; i <depth; i++)
-    {
-        myKey[i] =   (aIndex+depth*tid + i < partitionSizeA ? A_keys  [myStartIdxA + aIndex+depth*tid+i] : MAX_VAL);
-        myValue[i] = (aIndex+depth*tid + i < partitionSizeA ? A_values[myStartIdxA + aIndex+depth*tid+i] : UMAX_VAL);
-    }
+for(int i =0; i <depth; i++)
+{
+//    myKey[i] =   (aIndex+depth*tid + i < partitionSizeA ? A_keys  [myStartIdxA + aIndex+depth*tid+i] : MAX_VAL);
+//    myValue[i] = (aIndex+depth*tid + i < partitionSizeA ? A_values[myStartIdxA + aIndex+depth*tid+i] : UMAX_VAL);
+    myKey[i] =   A_keys  [myStartIdxA + aIndex + depth*tid + i];
+    myValue[i] = A_values[myStartIdxA + aIndex + depth*tid + i];
+}
+}
+else
+{
+ #pragma unroll
+for(int i =0; i <depth; i++)
+{
+myKey[i] =   (aIndex+depth*tid + i < partitionSizeA ? A_keys  [myStartIdxA + aIndex+depth*tid+i] : MAX_VAL);
+myValue[i] = (aIndex+depth*tid + i < partitionSizeA ? A_values[myStartIdxA + aIndex+depth*tid+i] : UMAX_VAL);
+}
+}
 
-    if(bIndex + INTERSECT_B_BLOCK_SIZE_simple < sizePerPartition) {
-        int bi = tid;
+if(bIndex + INTERSECT_B_BLOCK_SIZE_simple < partitionSizeB)
+{
+int bi = tid;
 #pragma unroll
-        for(int i = 0;i < INTERSECT_B_BLOCK_SIZE_simple/CTASIZE_simple; i++, bi+=CTASIZE_simple) {
-            BKeys[bi] =   A_keys[myStartIdxB + bIndex + bi];
-        }
-    }
-    else {
-        int bi = tid;
+for(int i = 0;i < INTERSECT_B_BLOCK_SIZE_simple/CTASIZE_simple; i++, bi+=CTASIZE_simple)
+{
+BKeys[bi] =   A_keys[myStartIdxB + bIndex + bi];
+}
+}
+else
+{
+int bi = tid;
 #pragma unroll
-        for(int i = 0;i < INTERSECT_B_BLOCK_SIZE_simple/CTASIZE_simple; i++, bi+=CTASIZE_simple) {
-            BKeys[bi] =   (bIndex + bi < sizePerPartition ? A_keys[myStartIdxB + bIndex + bi]   : MAX_VAL);
-        }
-    }
-    if(tid == CTASIZE_simple-1)
-    {
-        BMax[0] =  (bIndex + INTERSECT_B_BLOCK_SIZE_simple < sizePerPartition ? A_keys[myStartIdxB + bIndex + INTERSECT_B_BLOCK_SIZE_simple] : MAX_VAL);
-        BMax[1] = (aIndex + INTERSECT_A_BLOCK_SIZE_simple < partitionSizeA ? A_keys[myStartIdxA + aIndex + INTERSECT_A_BLOCK_SIZE_simple] :  A_keys[myStartIdxA + partitionSizeA-1]+1);
-    }
+for(int i = 0;i < INTERSECT_B_BLOCK_SIZE_simple/CTASIZE_simple; i++, bi+=CTASIZE_simple)
+{ BKeys[bi] =   (bIndex + bi < sizePerPartition ? A_keys[myStartIdxB + bIndex + bi]   : MAX_VAL);}
+}
+
+
+if(tid == CTASIZE_simple-1)
+{
+BMax[0] =  (bIndex + INTERSECT_B_BLOCK_SIZE_simple < sizePerPartition ? A_keys[myStartIdxB + bIndex + INTERSECT_B_BLOCK_SIZE_simple] : MAX_VAL);
+BMax[1] = (aIndex + INTERSECT_A_BLOCK_SIZE_simple < partitionSizeA ? A_keys[myStartIdxA + aIndex + INTERSECT_A_BLOCK_SIZE_simple] :  A_keys[myStartIdxA + partitionSizeA-1]+1);
+}
     __syncthreads();
 
     localMinB = MIN_VAL;
@@ -1550,7 +1748,6 @@ void simpleMerge_higher_basic(T *A_keys, unsigned int* A_values, T* A_keys_out, 
     nextMaxB = BMax[0];
     nextMaxA = BMax[1];
 
-    int globalCAddress;
     do
     {
         __syncthreads();
@@ -1559,7 +1756,7 @@ void simpleMerge_higher_basic(T *A_keys, unsigned int* A_values, T* A_keys_out, 
         //if(myKey[0] >= DVAL1 && myKey[0] <= DVAL2 && sizePerPartition == 2048)
         //	printf("higher myKey0 %u %d %d\n", myKey[0], globalCAddress + index, aIndex+tid*depth);
 
-        if((myKey[0] < nextMaxB && myKey[depth-1] > localMinB ||  (bIndex+INTERSECT_B_BLOCK_SIZE_simple) >= sizePerPartition) && (aIndex+depth*tid < partitionSizeA))
+        if((myKey[0] <= nextMaxB && myKey[depth-1] >= localMinB ||  (bIndex+INTERSECT_B_BLOCK_SIZE_simple) >= (sizePerPartition-1)) && (aIndex+depth*tid < partitionSizeA))
         {
             binSearch_whole_higher(BKeys, index, myKey[0]);
             T cmpValue = BKeys[index];
@@ -1571,7 +1768,7 @@ void simpleMerge_higher_basic(T *A_keys, unsigned int* A_values, T* A_keys_out, 
 
             //End Binary Search
             //binary search done for first element in our set (A_0)
-            if(myKey[0] > localMinB)
+            if(myKey[0] >= localMinB)
             {
                 A_keys_out[globalCAddress+index] = myKey[0]; A_values_out[globalCAddress+index] =  myValue[0];
             }
@@ -1580,11 +1777,11 @@ void simpleMerge_higher_basic(T *A_keys, unsigned int* A_values, T* A_keys_out, 
                 index++;
 
             //Save Key-Value Pair
-            if
-            ((
-            (myKey[1] < nextMaxB && myKey[1] > localMinB)
-            || bIndex+index >=sizePerPartition) && (aIndex+depth*tid+1 < partitionSizeA))
-
+//            if
+//            ((
+//                    (myKey[1] <= nextMaxB)//&& myKey[1] >= localMinB
+//            || bIndex+index >=sizePerPartition) && (aIndex+depth*tid+1 < partitionSizeA))
+            if(((myKey[1] <= nextMaxB && myKey[1] >= localMinB) || bIndex+index >= (sizePerPartition)) && (aIndex+tid*depth+1< sizePerPartition))
             {
                 A_keys_out[globalCAddress + index + 1] =  myKey[1]; A_values_out[globalCAddress + index + 1] =  myValue[1];	}
 
@@ -1593,7 +1790,7 @@ void simpleMerge_higher_basic(T *A_keys, unsigned int* A_values, T* A_keys_out, 
         // if(threadIdx.x == blockDim.x - 1) { *lastAIndex = index; }
         __syncthreads();
 
-        if((nextMaxA < nextMaxB || (bIndex+INTERSECT_B_BLOCK_SIZE_simple) >= sizePerPartition ) && (aIndex+INTERSECT_A_BLOCK_SIZE_simple)< partitionSizeA)
+        if((nextMaxA <= nextMaxB || (bIndex+INTERSECT_B_BLOCK_SIZE_simple) >= sizePerPartition ) && (aIndex+INTERSECT_A_BLOCK_SIZE_simple)< partitionSizeA)
         {
             aIndex += INTERSECT_A_BLOCK_SIZE_simple;
 
@@ -1638,6 +1835,194 @@ BMax[2] = myKey[depth-1];
         else
             breakout = true;
         __syncthreads();
+
+        //For each thread grab your value ranges for B and A
+        //These will look at the end of our window, and the beginning of the next window for A and B
+        //We make decisions on whether to advance a window, or save our merged value based on these
+        nextMaxB = BMax[0];
+        nextMaxA = BMax[1];
+        localMaxB = BKeys[INTERSECT_B_BLOCK_SIZE_simple-1];
+
+    }
+    while(!breakout);
+
+}
+
+/** @brief Merges the indices for the "upper" block (right block)
+*
+* Utilizes a "ping-pong" strategy
+* @param[in] A_keys  Global array of keys to be merged
+* @param[in] A_values  Global array of values to be merged
+* @param[out] A_keys_out  Resulting array of keys merged
+* @param[out] A_values_out  Resulting array of values merged
+* @param[in] sizePerPartition Size of each partition being merged
+* @param[in] size Size of total Array being sorted
+**/
+template<class T, int depth>
+__global__
+void simpleMerge_higher_basics(T *A_keys, unsigned int* A_values, T* A_keys_out, unsigned int *A_values_out, int sizePerPartition, int size,short it)
+{
+
+    int myId = blockIdx.x; int tid = threadIdx.x;
+    int myStartIdxA = (2*myId+1)*sizePerPartition;    int myStartIdxB = 2*myId*sizePerPartition; int myStartIdxC = myStartIdxB;
+    int partitionSizeA = (sizePerPartition < (size - myStartIdxA) ? sizePerPartition : size - myStartIdxA);
+    int partitionSizeB = (sizePerPartition < (size - myStartIdxB) ? sizePerPartition : size - myStartIdxB);
+
+    T MAX_VAL = getMax<T>();
+    T MIN_VAL = getMin<T>();
+    unsigned int UMAX_VAL = getMax<unsigned int>();
+#if (__CUDA_ARCH__ >= 200)
+    extern __shared__ char shared[];
+#else
+    extern __shared__ unsigned int shared[];
+#endif
+    T* BKeys =  (T*) shared;
+    T* BMax = (T*) &BKeys[INTERSECT_B_BLOCK_SIZE_simple];
+    T nextMaxB, nextMaxA, localMaxB, localMinB;
+
+    int globalCAddress;
+    int index, bIndex = 0, aIndex = 0;
+    bool breakout = false;
+
+    T myKey[depth];
+    unsigned int myValue[depth];
+
+    //Load registers
+    if(aIndex + INTERSECT_A_BLOCK_SIZE_simple < sizePerPartition)
+    {
+#pragma unroll
+        for(int i =0; i <depth; i++)
+        {
+            myKey[i] =   A_keys  [myStartIdxA + aIndex + depth*tid + i];
+            myValue[i] = A_values[myStartIdxA + aIndex + depth*tid + i];
+        }
+    }
+    else
+    {
+ #pragma unroll
+        for(int i =0; i <depth; i++)
+        {
+            myKey[i] =   (aIndex+depth*tid + i < partitionSizeA ? A_keys  [myStartIdxA + aIndex+depth*tid+i] : MAX_VAL);
+            myValue[i] = (aIndex+depth*tid + i < partitionSizeA ? A_values[myStartIdxA + aIndex+depth*tid+i] : UMAX_VAL);
+        }
+    }
+
+    if(bIndex + INTERSECT_B_BLOCK_SIZE_simple < partitionSizeB)
+    {
+        int bi = tid;
+#pragma unroll
+        for(int i = 0;i < INTERSECT_B_BLOCK_SIZE_simple/CTASIZE_simple; i++, bi+=CTASIZE_simple)
+        {
+            BKeys[bi] =   A_keys[myStartIdxB + bIndex + bi];
+        }
+    }
+    else
+    {
+        int bi = tid;
+#pragma unroll
+        for(int i = 0;i < INTERSECT_B_BLOCK_SIZE_simple/CTASIZE_simple; i++, bi+=CTASIZE_simple)
+        { BKeys[bi] =   (bIndex + bi < sizePerPartition ? A_keys[myStartIdxB + bIndex + bi]   : MAX_VAL);}
+    }
+
+
+    if(tid == CTASIZE_simple-1)
+    {
+        BMax[0] =  (bIndex + INTERSECT_B_BLOCK_SIZE_simple < sizePerPartition ? A_keys[myStartIdxB + bIndex + INTERSECT_B_BLOCK_SIZE_simple] : MAX_VAL);
+        BMax[1] = (aIndex + INTERSECT_A_BLOCK_SIZE_simple < partitionSizeA ? A_keys[myStartIdxA + aIndex + INTERSECT_A_BLOCK_SIZE_simple] :  A_keys[myStartIdxA + partitionSizeA-1]+1);
+    }
+    __syncthreads();
+
+    localMinB = MIN_VAL;
+    localMaxB = BKeys[INTERSECT_B_BLOCK_SIZE_simple-1];
+
+    nextMaxB = BMax[0];
+    nextMaxA = BMax[1];
+
+do
+{
+
+__syncthreads();
+index = 0;
+globalCAddress = myStartIdxC + bIndex + aIndex + depth*tid;
+
+if((myKey[0] <= nextMaxB && myKey[depth-1] >= localMinB ||  (bIndex+INTERSECT_B_BLOCK_SIZE_simple) >= sizePerPartition) && (aIndex+depth*tid < partitionSizeA))
+{
+
+binSearch_whole_higher(BKeys, index, myKey[0]);
+T cmpValue = BKeys[index];
+if(cmpValue <=myKey[0] && index < INTERSECT_B_BLOCK_SIZE_simple)
+cmpValue = BKeys[++index];
+index = (cmpValue <= myKey[0] ? index + 1 : index);
+
+if(myKey[0] == 2) //&& globalCAddress+index > 2048 && globalCAddress+index <= 2389
+printf("%d) SMH-%d from %d inserted in %d(%d + %d + %d + %d + %d)\n",myId,myKey[0],myStartIdxA + aIndex + depth*tid,globalCAddress+index, myStartIdxC , bIndex , aIndex , depth*tid,index );
+if(myKey[0] >= localMinB)
+{
+    if(myKey[0] == 2)
+        printf("%d) SMH 2 from %d inserted in %d(%d + %d + %d + %d + %d)\n",myId,myStartIdxA + aIndex + depth*tid,globalCAddress+index, myStartIdxC , bIndex , aIndex , depth*tid,index );
+    A_keys_out[globalCAddress+index] = myKey[0]; A_values_out[globalCAddress+index] =  myValue[0];
+}
+
+while(BKeys[index] <= myKey[1] && index < INTERSECT_B_BLOCK_SIZE_simple )
+    index++;
+
+if(myKey[0] == 2) // && globalCAddress+index > 2048 && globalCAddress+index <= 2389
+printf("%d) SMH-%d from %d inserted in %d(%d + %d + %d + %d + %d + 1)\n",myId,myKey[1],myStartIdxA + aIndex + depth*tid + 1,globalCAddress+index + 1, myStartIdxC , bIndex , aIndex , depth*tid,index );
+
+if( (myKey[1] <= nextMaxB && myKey[1] >= localMinB) || (bIndex+index) >= (partitionSizeB) && (aIndex+tid*depth+1< sizePerPartition))
+{
+    if(myKey[0] == 2)
+        printf("%d) SMH 2 from %d inserted in %d(%d + %d + %d + %d + %d + 1 )\n",myId, myStartIdxA + aIndex + depth*tid + 1,globalCAddress+index + 1, myStartIdxC , bIndex , aIndex , depth*tid,index );
+    A_keys_out[globalCAddress + index + 1] =  myKey[1]; A_values_out[globalCAddress + index + 1] =  myValue[1];	    }
+
+}
+__syncthreads();
+
+if((nextMaxA <= nextMaxB || (bIndex+INTERSECT_B_BLOCK_SIZE_simple) >= partitionSizeB ) && (aIndex+INTERSECT_A_BLOCK_SIZE_simple)< partitionSizeA)
+{
+    aIndex += INTERSECT_A_BLOCK_SIZE_simple;
+
+    //Use INT_MAX-1 as an "invalid/no-value" type in case we are out of values to check
+#pragma unroll
+for(int i=0;i <depth;i++)
+{
+myKey[i]   = (aIndex+depth*tid+i   < partitionSizeA ? A_keys[myStartIdxA + aIndex + depth * tid + i]   : MAX_VAL);
+myValue[i] = (aIndex+depth*tid+i   < partitionSizeA ? A_values[myStartIdxA + aIndex + depth * tid + i]   : UMAX_VAL);
+}
+
+if(tid == CTASIZE_simple-1)
+{
+BMax[1] = (aIndex + INTERSECT_A_BLOCK_SIZE_simple < partitionSizeA ?
+    A_keys[myStartIdxA + aIndex + INTERSECT_A_BLOCK_SIZE_simple] : A_keys[myStartIdxA + partitionSizeA - 1] + 1);
+BMax[2] = myKey[depth-1];
+}
+}
+else if(nextMaxB <= nextMaxA && (bIndex+INTERSECT_B_BLOCK_SIZE_simple) < partitionSizeB)
+{
+    localMinB = localMaxB;
+    //Use INT_MAX as an "invalid/no-value" type in case the streaming window cannot be filled
+    bIndex += INTERSECT_B_BLOCK_SIZE_simple;
+    if(bIndex + INTERSECT_B_BLOCK_SIZE_simple < sizePerPartition) {
+        int bi = tid;
+#pragma unroll
+        for(int i = 0;i < INTERSECT_B_BLOCK_SIZE_simple/CTASIZE_simple; i++, bi+=CTASIZE_simple) {
+            BKeys[bi] =   A_keys[myStartIdxB + bIndex + bi];
+        }
+    }
+    else {
+        int bi = tid;
+#pragma unroll
+        for(int i = 0;i < INTERSECT_B_BLOCK_SIZE_simple/CTASIZE_simple; i++, bi+=CTASIZE_simple) {
+            BKeys[bi] =   (bIndex + bi < sizePerPartition ? A_keys[myStartIdxB + bIndex + bi]   : MAX_VAL);
+        }
+    }
+
+    if(tid == 0)
+        BMax[0] =  (bIndex + INTERSECT_B_BLOCK_SIZE_simple < sizePerPartition ? A_keys[myStartIdxB + bIndex + INTERSECT_B_BLOCK_SIZE_simple] : MAX_VAL);
+}
+else
+    breakout = true;
+__syncthreads();
 
         //For each thread grab your value ranges for B and A
         //These will look at the end of our window, and the beginning of the next window for A and B
@@ -1759,12 +2144,11 @@ do
         (aIndex+depth*tid+1 < partitionSizeB) ) //This is correct
     {
 
-        binSearch_whole_higher(BKeys, index, myKey[0]);
+        binSearch_whole_lower(BKeys, index, myKey[0]);
         T cmpValue = BKeys[index];
         while(cmpValue <= myKey[0] && index < INTERSECT_B_BLOCK_SIZE_simple)
             cmpValue = BKeys[++index];
         --index;
-        //        index = (cmpValue <= myKey[0] ? index + 1 : index);
 
         //Insert from binary search
         if(myKey[0] >= localMinB && myValue[0] )
@@ -1778,8 +2162,7 @@ do
         --index;
         //Save Key-Value Pair
         if( myValue[1]  &&
-            myKey[1] <= localMaxB // && //||        bIndex+index >=sizePerPartition
-//            aIndex+depth*tid+1 < partitionSizeB
+            myKey[1] <= localMaxB // && ||        bIndex+index >=sizePerPartition
         )
         {
             A_values[myStartIdxB + bIndex + index] += myValue[1];

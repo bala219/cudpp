@@ -1,1 +1,0 @@
-/usr/bin/cc  -v -rdynamic CMakeFiles/cmTC_7fd45.dir/CMakeCCompilerABI.c.o -o cmTC_7fd45 

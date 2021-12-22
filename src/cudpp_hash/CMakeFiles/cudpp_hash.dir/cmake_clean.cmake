@@ -1,6 +1,6 @@
 file(REMOVE_RECURSE
-  "../../lib/libcudpp_hash.a"
-  "../../lib/libcudpp_hash.pdb"
+  "../../lib/libcudpp_hash64d.a"
+  "../../lib/libcudpp_hash64d.pdb"
   "CMakeFiles/cudpp_hash.dir/cudpp_hash.cpp.o"
   "CMakeFiles/cudpp_hash.dir/cudpp_hash_generated_debugging.cu.o"
   "CMakeFiles/cudpp_hash.dir/cudpp_hash_generated_hash_compacting.cu.o"

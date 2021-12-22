@@ -1,4 +1,4 @@
-# Install script for directory: /home/gurumurt/projects/cudpp-master
+# Install script for directory: /media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -12,7 +12,7 @@ if(NOT DEFINED CMAKE_INSTALL_CONFIG_NAME)
     string(REGEX REPLACE "^[^A-Za-z0-9_]+" ""
            CMAKE_INSTALL_CONFIG_NAME "${BUILD_TYPE}")
   else()
-    set(CMAKE_INSTALL_CONFIG_NAME "")
+    set(CMAKE_INSTALL_CONFIG_NAME "Debug")
   endif()
   message(STATUS "Install configuration: \"${CMAKE_INSTALL_CONFIG_NAME}\"")
 endif()
@@ -37,18 +37,23 @@ if(NOT DEFINED CMAKE_CROSSCOMPILING)
   set(CMAKE_CROSSCOMPILING "FALSE")
 endif()
 
-if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" TYPE FILE RENAME "cudpp-config.cmake" FILES "/home/gurumurt/projects/cudpp-master/lib/cudpp-config.cmake.install")
+# Set default install directory permissions.
+if(NOT DEFINED CMAKE_OBJDUMP)
+  set(CMAKE_OBJDUMP "/usr/bin/objdump")
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" TYPE FILE FILES "/home/gurumurt/projects/cudpp-master/lib/cudpp-config-version.cmake")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" TYPE FILE RENAME "cudpp-config.cmake" FILES "/media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/lib/cudpp-config.cmake.install")
+endif()
+
+if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" TYPE FILE FILES "/media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/lib/cudpp-config-version.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("/home/gurumurt/projects/cudpp-master/src/cudpp/cmake_install.cmake")
-  include("/home/gurumurt/projects/cudpp-master/src/cudpp_hash/cmake_install.cmake")
+  include("/media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/src/cudpp/cmake_install.cmake")
+  include("/media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/src/cudpp_hash/cmake_install.cmake")
 
 endif()
 
@@ -60,5 +65,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/gurumurt/projects/cudpp-master/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

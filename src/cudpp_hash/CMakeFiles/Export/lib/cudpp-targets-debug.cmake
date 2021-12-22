@@ -9,7 +9,7 @@ set(CMAKE_IMPORT_FILE_VERSION 1)
 set_property(TARGET cudpp APPEND PROPERTY IMPORTED_CONFIGURATIONS DEBUG)
 set_target_properties(cudpp PROPERTIES
   IMPORTED_LINK_INTERFACE_LANGUAGES_DEBUG "CXX"
-  IMPORTED_LINK_INTERFACE_LIBRARIES_DEBUG "/usr/local/cuda-10.1/lib64/libcudart.so"
+  IMPORTED_LINK_INTERFACE_LIBRARIES_DEBUG "/usr/local/cuda-10.1/lib64/libcudart_static.a;Threads::Threads;dl;/usr/lib/x86_64-linux-gnu/librt.so"
   IMPORTED_LOCATION_DEBUG "${_IMPORT_PREFIX}/lib/libcudpp64d.a"
   )
 
@@ -20,7 +20,7 @@ list(APPEND _IMPORT_CHECK_FILES_FOR_cudpp "${_IMPORT_PREFIX}/lib/libcudpp64d.a" 
 set_property(TARGET cudpp_hash APPEND PROPERTY IMPORTED_CONFIGURATIONS DEBUG)
 set_target_properties(cudpp_hash PROPERTIES
   IMPORTED_LINK_INTERFACE_LANGUAGES_DEBUG "CXX"
-  IMPORTED_LINK_INTERFACE_LIBRARIES_DEBUG "/usr/local/cuda-10.1/lib64/libcudart.so;cudpp"
+  IMPORTED_LINK_INTERFACE_LIBRARIES_DEBUG "/usr/local/cuda-10.1/lib64/libcudart_static.a;Threads::Threads;dl;/usr/lib/x86_64-linux-gnu/librt.so;cudpp"
   IMPORTED_LOCATION_DEBUG "${_IMPORT_PREFIX}/lib/libcudpp_hash64d.a"
   )
 

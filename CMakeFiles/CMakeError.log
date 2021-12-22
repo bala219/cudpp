@@ -1,30 +1,31 @@
 Performing C SOURCE FILE Test CMAKE_HAVE_LIBC_PTHREAD failed with the following output:
 Change Dir: /media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/CMakeFiles/CMakeTmp
 
-Run Build Command(s):/usr/bin/make cmTC_36d20/fast && /usr/bin/make -f CMakeFiles/cmTC_36d20.dir/build.make CMakeFiles/cmTC_36d20.dir/build
+Run Build Command(s):/usr/bin/make -f Makefile cmTC_98a58/fast && /usr/bin/make  -f CMakeFiles/cmTC_98a58.dir/build.make CMakeFiles/cmTC_98a58.dir/build
 make[1]: Entering directory '/media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/CMakeFiles/CMakeTmp'
-Building C object CMakeFiles/cmTC_36d20.dir/src.c.o
-/usr/bin/cc   -fPIC -DCMAKE_HAVE_LIBC_PTHREAD   -o CMakeFiles/cmTC_36d20.dir/src.c.o   -c /media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/CMakeFiles/CMakeTmp/src.c
-Linking C executable cmTC_36d20
-/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_36d20.dir/link.txt --verbose=1
-/usr/bin/cc -fPIC -DCMAKE_HAVE_LIBC_PTHREAD    -rdynamic CMakeFiles/cmTC_36d20.dir/src.c.o  -o cmTC_36d20 
-CMakeFiles/cmTC_36d20.dir/src.c.o: In function `main':
+Building C object CMakeFiles/cmTC_98a58.dir/src.c.o
+/usr/bin/cc -DCMAKE_HAVE_LIBC_PTHREAD  -fPIC  -o CMakeFiles/cmTC_98a58.dir/src.c.o -c /media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/CMakeFiles/CMakeTmp/src.c
+Linking C executable cmTC_98a58
+/home/gurumurt/clion-2021.2/bin/cmake/linux/bin/cmake -E cmake_link_script CMakeFiles/cmTC_98a58.dir/link.txt --verbose=1
+/usr/bin/cc -fPIC  -rdynamic CMakeFiles/cmTC_98a58.dir/src.c.o -o cmTC_98a58 
+CMakeFiles/cmTC_98a58.dir/src.c.o: In function `main':
 src.c:(.text+0x3e): undefined reference to `pthread_create'
 src.c:(.text+0x4a): undefined reference to `pthread_detach'
-src.c:(.text+0x5b): undefined reference to `pthread_join'
-src.c:(.text+0x6f): undefined reference to `pthread_atfork'
+src.c:(.text+0x56): undefined reference to `pthread_cancel'
+src.c:(.text+0x67): undefined reference to `pthread_join'
+src.c:(.text+0x7b): undefined reference to `pthread_atfork'
 collect2: error: ld returned 1 exit status
-CMakeFiles/cmTC_36d20.dir/build.make:86: recipe for target 'cmTC_36d20' failed
-make[1]: *** [cmTC_36d20] Error 1
+CMakeFiles/cmTC_98a58.dir/build.make:98: recipe for target 'cmTC_98a58' failed
+make[1]: *** [cmTC_98a58] Error 1
 make[1]: Leaving directory '/media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/CMakeFiles/CMakeTmp'
-Makefile:121: recipe for target 'cmTC_36d20/fast' failed
-make: *** [cmTC_36d20/fast] Error 2
+Makefile:127: recipe for target 'cmTC_98a58/fast' failed
+make: *** [cmTC_98a58/fast] Error 2
 
 
 Source file was:
 #include <pthread.h>
 
-void* test_func(void* data)
+static void* test_func(void* data)
 {
   return data;
 }
@@ -34,6 +35,7 @@ int main(void)
   pthread_t thread;
   pthread_create(&thread, NULL, test_func, NULL);
   pthread_detach(thread);
+  pthread_cancel(thread);
   pthread_join(thread, NULL);
   pthread_atfork(NULL, NULL, NULL);
   pthread_exit(NULL);
@@ -44,78 +46,20 @@ int main(void)
 Determining if the function pthread_create exists in the pthreads failed with the following output:
 Change Dir: /media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/CMakeFiles/CMakeTmp
 
-Run Build Command(s):/usr/bin/make cmTC_db06f/fast && /usr/bin/make -f CMakeFiles/cmTC_db06f.dir/build.make CMakeFiles/cmTC_db06f.dir/build
+Run Build Command(s):/usr/bin/make -f Makefile cmTC_e02a8/fast && /usr/bin/make  -f CMakeFiles/cmTC_e02a8.dir/build.make CMakeFiles/cmTC_e02a8.dir/build
 make[1]: Entering directory '/media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/CMakeFiles/CMakeTmp'
-Building C object CMakeFiles/cmTC_db06f.dir/CheckFunctionExists.c.o
-/usr/bin/cc   -fPIC -DCHECK_FUNCTION_EXISTS=pthread_create   -o CMakeFiles/cmTC_db06f.dir/CheckFunctionExists.c.o   -c /usr/local/share/cmake-3.16/Modules/CheckFunctionExists.c
-Linking C executable cmTC_db06f
-/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_db06f.dir/link.txt --verbose=1
-/usr/bin/cc -fPIC -DCHECK_FUNCTION_EXISTS=pthread_create    -rdynamic CMakeFiles/cmTC_db06f.dir/CheckFunctionExists.c.o  -o cmTC_db06f  -lpthreads 
+Building C object CMakeFiles/cmTC_e02a8.dir/CheckFunctionExists.c.o
+/usr/bin/cc   -fPIC -DCHECK_FUNCTION_EXISTS=pthread_create -o CMakeFiles/cmTC_e02a8.dir/CheckFunctionExists.c.o -c /home/gurumurt/clion-2021.2/bin/cmake/linux/share/cmake-3.20/Modules/CheckFunctionExists.c
+Linking C executable cmTC_e02a8
+/home/gurumurt/clion-2021.2/bin/cmake/linux/bin/cmake -E cmake_link_script CMakeFiles/cmTC_e02a8.dir/link.txt --verbose=1
+/usr/bin/cc -fPIC -DCHECK_FUNCTION_EXISTS=pthread_create -rdynamic CMakeFiles/cmTC_e02a8.dir/CheckFunctionExists.c.o -o cmTC_e02a8  -lpthreads 
 /usr/bin/ld: cannot find -lpthreads
 collect2: error: ld returned 1 exit status
-CMakeFiles/cmTC_db06f.dir/build.make:86: recipe for target 'cmTC_db06f' failed
-make[1]: *** [cmTC_db06f] Error 1
+CMakeFiles/cmTC_e02a8.dir/build.make:98: recipe for target 'cmTC_e02a8' failed
+make[1]: *** [cmTC_e02a8] Error 1
 make[1]: Leaving directory '/media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/CMakeFiles/CMakeTmp'
-Makefile:121: recipe for target 'cmTC_db06f/fast' failed
-make: *** [cmTC_db06f/fast] Error 2
-
-
-
-Performing C SOURCE FILE Test CMAKE_HAVE_LIBC_PTHREAD failed with the following output:
-Change Dir: /home/gurumurt/projects/cudpp-master/CMakeFiles/CMakeTmp
-
-Run Build Command(s):/usr/bin/make cmTC_df5d0/fast && /usr/bin/make -f CMakeFiles/cmTC_df5d0.dir/build.make CMakeFiles/cmTC_df5d0.dir/build
-make[1]: Entering directory '/home/gurumurt/projects/cudpp-master/CMakeFiles/CMakeTmp'
-Building C object CMakeFiles/cmTC_df5d0.dir/src.c.o
-/usr/bin/cc   -fPIC -DCMAKE_HAVE_LIBC_PTHREAD   -o CMakeFiles/cmTC_df5d0.dir/src.c.o   -c /home/gurumurt/projects/cudpp-master/CMakeFiles/CMakeTmp/src.c
-Linking C executable cmTC_df5d0
-/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_df5d0.dir/link.txt --verbose=1
-/usr/bin/cc -fPIC -DCMAKE_HAVE_LIBC_PTHREAD    -rdynamic CMakeFiles/cmTC_df5d0.dir/src.c.o  -o cmTC_df5d0 
-/usr/bin/ld: CMakeFiles/cmTC_df5d0.dir/src.c.o: in function `main':
-src.c:(.text+0x46): undefined reference to `pthread_create'
-/usr/bin/ld: src.c:(.text+0x52): undefined reference to `pthread_detach'
-/usr/bin/ld: src.c:(.text+0x63): undefined reference to `pthread_join'
-collect2: error: ld returned 1 exit status
-make[1]: *** [CMakeFiles/cmTC_df5d0.dir/build.make:87: cmTC_df5d0] Error 1
-make[1]: Leaving directory '/home/gurumurt/projects/cudpp-master/CMakeFiles/CMakeTmp'
-make: *** [Makefile:121: cmTC_df5d0/fast] Error 2
-
-
-Source file was:
-#include <pthread.h>
-
-void* test_func(void* data)
-{
-  return data;
-}
-
-int main(void)
-{
-  pthread_t thread;
-  pthread_create(&thread, NULL, test_func, NULL);
-  pthread_detach(thread);
-  pthread_join(thread, NULL);
-  pthread_atfork(NULL, NULL, NULL);
-  pthread_exit(NULL);
-
-  return 0;
-}
-
-Determining if the function pthread_create exists in the pthreads failed with the following output:
-Change Dir: /home/gurumurt/projects/cudpp-master/CMakeFiles/CMakeTmp
-
-Run Build Command(s):/usr/bin/make cmTC_8f471/fast && /usr/bin/make -f CMakeFiles/cmTC_8f471.dir/build.make CMakeFiles/cmTC_8f471.dir/build
-make[1]: Entering directory '/home/gurumurt/projects/cudpp-master/CMakeFiles/CMakeTmp'
-Building C object CMakeFiles/cmTC_8f471.dir/CheckFunctionExists.c.o
-/usr/bin/cc   -fPIC -DCHECK_FUNCTION_EXISTS=pthread_create   -o CMakeFiles/cmTC_8f471.dir/CheckFunctionExists.c.o   -c /usr/share/cmake-3.16/Modules/CheckFunctionExists.c
-Linking C executable cmTC_8f471
-/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_8f471.dir/link.txt --verbose=1
-/usr/bin/cc -fPIC -DCHECK_FUNCTION_EXISTS=pthread_create    -rdynamic CMakeFiles/cmTC_8f471.dir/CheckFunctionExists.c.o  -o cmTC_8f471  -lpthreads 
-/usr/bin/ld: cannot find -lpthreads
-collect2: error: ld returned 1 exit status
-make[1]: *** [CMakeFiles/cmTC_8f471.dir/build.make:87: cmTC_8f471] Error 1
-make[1]: Leaving directory '/home/gurumurt/projects/cudpp-master/CMakeFiles/CMakeTmp'
-make: *** [Makefile:121: cmTC_8f471/fast] Error 2
+Makefile:127: recipe for target 'cmTC_e02a8/fast' failed
+make: *** [cmTC_e02a8/fast] Error 2
 
 
 

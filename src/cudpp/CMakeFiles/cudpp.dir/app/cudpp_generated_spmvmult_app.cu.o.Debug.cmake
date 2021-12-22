@@ -57,12 +57,12 @@ if(NOT generated_file)
 endif()
 
 # Set these up as variables to make reading the generated file easier
-set(CMAKE_COMMAND "/usr/local/bin/cmake") # path
+set(CMAKE_COMMAND "/home/gurumurt/clion-2021.2/bin/cmake/linux/bin/cmake") # path
 set(source_file "/media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/src/cudpp/app/spmvmult_app.cu") # path
 set(NVCC_generated_dependency_file "/media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/src/cudpp/CMakeFiles/cudpp.dir/app/cudpp_generated_spmvmult_app.cu.o.NVCC-depend") # path
 set(cmake_dependency_file "/media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/src/cudpp/CMakeFiles/cudpp.dir/app/cudpp_generated_spmvmult_app.cu.o.depend") # path
-set(CUDA_make2cmake "/usr/local/share/cmake-3.16/Modules/FindCUDA/make2cmake.cmake") # path
-set(CUDA_parse_cubin "/usr/local/share/cmake-3.16/Modules/FindCUDA/parse_cubin.cmake") # path
+set(CUDA_make2cmake "/home/gurumurt/clion-2021.2/bin/cmake/linux/share/cmake-3.20/Modules/FindCUDA/make2cmake.cmake") # path
+set(CUDA_parse_cubin "/home/gurumurt/clion-2021.2/bin/cmake/linux/share/cmake-3.20/Modules/FindCUDA/parse_cubin.cmake") # path
 set(build_cubin OFF) # bool
 set(CUDA_HOST_COMPILER "/usr/bin/cc") # path
 # We won't actually use these variables for now, but we need to set this, in
@@ -72,7 +72,7 @@ set(generated_file_internal "/media/gurumurt/Data/PhD/Sort_Based_Aggregation/imp
 set(generated_cubin_file_internal "/media/gurumurt/Data/PhD/Sort_Based_Aggregation/implementation/cudpp-master/src/cudpp/CMakeFiles/cudpp.dir/app/./cudpp_generated_spmvmult_app.cu.o.cubin.txt") # path
 
 set(CUDA_NVCC_EXECUTABLE "/usr/local/cuda-10.1/bin/nvcc") # path
-set(CUDA_NVCC_FLAGS  ;; -gencode=arch=compute_30,code=sm_30;-gencode=arch=compute_30,code=compute_30) # list
+set(CUDA_NVCC_FLAGS  ;; -gencode=arch=compute_50,code=sm_50;-gencode=arch=compute_50,code=compute_50) # list
 # Build specific configuration flags
 set(CUDA_NVCC_FLAGS_DEBUG  ; )
 set(CUDA_NVCC_FLAGS_MINSIZEREL  ; )
@@ -163,7 +163,7 @@ macro(cuda_execute_process status command)
     # copy and paste a runnable command line.
     set(cuda_execute_process_string)
     foreach(arg ${ARGN})
-      # If there are quotes, excape them, so they come through.
+      # If there are quotes, escape them, so they come through.
       string(REPLACE "\"" "\\\"" arg ${arg})
       # Args with spaces need quotes around them to get them to be parsed as a single argument.
       if(arg MATCHES " ")
@@ -182,7 +182,7 @@ endmacro()
 # Delete the target file
 cuda_execute_process(
   "Removing ${generated_file}"
-  COMMAND "${CMAKE_COMMAND}" -E remove "${generated_file}"
+  COMMAND "${CMAKE_COMMAND}" -E rm -f "${generated_file}"
   )
 
 # For CUDA 2.3 and below, -G -M doesn't work, so remove the -G flag
@@ -249,7 +249,7 @@ endif()
 # Delete the temporary file
 cuda_execute_process(
   "Removing ${cmake_dependency_file}.tmp and ${NVCC_generated_dependency_file}"
-  COMMAND "${CMAKE_COMMAND}" -E remove "${cmake_dependency_file}.tmp" "${NVCC_generated_dependency_file}"
+  COMMAND "${CMAKE_COMMAND}" -E rm -f "${cmake_dependency_file}.tmp" "${NVCC_generated_dependency_file}"
   )
 
 if(CUDA_result)
@@ -275,7 +275,7 @@ if(CUDA_result)
   # Since nvcc can sometimes leave half done files make sure that we delete the output file.
   cuda_execute_process(
     "Removing ${generated_file}"
-    COMMAND "${CMAKE_COMMAND}" -E remove "${generated_file}"
+    COMMAND "${CMAKE_COMMAND}" -E rm -f "${generated_file}"
     )
   message(FATAL_ERROR "Error generating file ${generated_file}")
 else()

@@ -1,3 +1,3 @@
 file(REMOVE_RECURSE
-  "../../lib/libcudpp_hash.a"
+  "../../lib/libcudpp_hash64d.a"
 )
